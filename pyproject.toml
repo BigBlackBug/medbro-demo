@@ -1,0 +1,98 @@
+[tool.poetry]
+name = "demo-assistant"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.14"
+gradio = "^6.0.2"
+pydantic = "<=2.12.4"
+openai = "^2.8.1"
+python-dotenv = "^1.2.1"
+pydantic-settings = "^2.12.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^25.11.0"
+mypy = "^1.19.0"
+isort = "^7.0.0"
+pyproject-autoflake = "^1.0.2"
+types-requests = "^2.31.0"  # Useful if using requests, but standard for mypy setups
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.flake8]
+max-line-length = 100
+max-complexity = 18
+select = ['C','E','F','W','B']
+ignore = ['E501','W503','E203','D100','W291','W293',]
+
+per-file-ignores = """
+    migrations/*: W293
+    */prompts.py: W293, W291
+    apps/voice_manager/svc/workers/config.py: W293, W291
+    */prompts_multi.py: W293, W291
+"""
+#[tool.coverage.run]
+#source = [
+#    'svc/api',
+#    'svc/events',
+#    'svc/tasks',
+#]
+#branch = true
+
+#[tool.coverage.report]
+##fail_under = 80
+#skip_covered = true
+#show_missing = true
+#sort = 'cover'
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.venv
+  | \.vscode
+)
+'''
+
+[tool.isort]
+line_length = 100
+force_grid_wrap = 0
+multi_line_output = 3
+use_parentheses = true
+include_trailing_comma = true
+known_first_party = "svc,tests"
+default_section = "THIRDPARTY"
+lines_after_imports = -1
+
+[tool.autoflake]
+recursive = true
+in-place = true
+remove-unused-variables = true
+remove-all-unused-imports = true
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+#exclude = ['^apps/.*/tests', 'app_gradio.py']
+follow_imports = "silent"
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_reexport = true
+disallow_untyped_defs = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
