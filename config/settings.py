@@ -28,12 +28,12 @@ class AppConfig(BaseSettings):
 
     # Models
     OPENAI_API_KEY: str = Field(default="")
-    LLM_MODEL: str = "gpt-4o"
-    STT_MODEL: str = "whisper-1"
+    LLM_MODEL: str = "gpt-5.1"
+    STT_MODEL: str = "gpt-4o-transcribe"
     TTS_MODEL: str = "tts-1"
 
     # Mocking
-    USE_MOCK_SERVICES: bool = True
+    USE_MOCK_SERVICES: bool = False
 
     # Application Paths
     TEMP_DIR: Path = BASE_DIR / "_temp"

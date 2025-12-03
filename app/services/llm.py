@@ -41,18 +41,39 @@ class MockLLM(LLMProvider):
                 ],
             ),
             doctor_evaluation=DoctorEvaluation(
-                criteria={
-                    "history_taking": EvaluationCriterion(
-                        score=4, comment="Собрал основные жалобы, но не дожал тему аллергии."
+                criteria=[
+                    EvaluationCriterion(
+                        name="history_taking",
+                        score=4,
+                        comment="Собрал основные жалобы, но не дожал тему аллергии.",
                     ),
-                    "clinical_reasoning": EvaluationCriterion(
+                    EvaluationCriterion(
+                        name="clinical_reasoning",
                         score=3,
                         comment="Назначил антибиотик сразу, без подтверждения бак. инфекции.",
                     ),
-                    "communication": EvaluationCriterion(score=5, comment="Вежлив, понятен."),
-                    "safety": EvaluationCriterion(score=3, comment="Риск аллергической реакции."),
-                },
+                    EvaluationCriterion(
+                        name="communication",
+                        score=5,
+                        comment="Вежлив, понятен.",
+                    ),
+                    EvaluationCriterion(
+                        name="safety",
+                        score=3,
+                        comment="Риск аллергической реакции.",
+                    ),
+                ],
                 general_comment="Врач действовал по стандартному протоколу, но стоит быть внимательнее к аллергоанамнезу.",
+            ),
+            formatted_transcript=(
+                "Доктор: Добрый день. На что FFFF?<br>"
+                "Пациент: У меня <span style='background-color: #ffeef0; color: #b31b1b;'>сильный кашель</span> и "
+                "<span style='background-color: #ffeef0; color: #b31b1b;'>температура 38</span> уже "
+                "<span style='background-color: #ffeef0; color: #b31b1b;'>3 день</span>.<br>"
+                "Доктор: Понятно. Аллергии есть?<br>"
+                "Пациент: Не знаю, вроде нет.<br>"
+                "Доктор: Хорошо. Принимайте <span style='background-color: #e6ffed; color: #22863a;'>Амоксиклав 875 мг 2 раза в день</span> "
+                "в течение <span style='background-color: #e6ffed; color: #22863a;'>7 дней</span>."
             ),
         )
 
@@ -63,22 +84,22 @@ class OpenAILLM(LLMProvider):
 
     async def analyze(self, text: str, system_prompt: str) -> AnalysisResult:
         logger.info(f"OpenAILLM: Sending request to {config.LLM_MODEL}")
-        response = await self.client.chat.completions.create(
+        response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text},
             ],
-            response_format={"type": "json_object"},
+            response_format=AnalysisResult,
         )
 
-        content = response.choices[0].message.content
-        if not content:
-            logger.error("OpenAILLM: Received empty response")
-            raise ValueError("Empty response from LLM")
+        parsed_result = response.choices[0].message.parsed
+        if not parsed_result:
+            logger.error("OpenAILLM: Received empty or invalid response")
+            raise ValueError("Empty or invalid response from LLM")
 
         logger.info("OpenAILLM: Received valid response")
-        return AnalysisResult.model_validate_json(content)
+        return parsed_result
 
 
 def get_llm_provider() -> LLMProvider:

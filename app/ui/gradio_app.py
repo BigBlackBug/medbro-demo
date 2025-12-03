@@ -19,9 +19,9 @@ async def analyze_visit(audio_path: str):
 
     # Format Evaluation Table
     eval_data = []
-    for key, criterion in analysis.doctor_evaluation.criteria.items():
+    for criterion in analysis.doctor_evaluation.criteria:
         eval_data.append(
-            {"Критерий": key, "Оценка": f"{criterion.score}/5", "Комментарий": criterion.comment}
+            {"Критерий": criterion.name, "Оценка": f"{criterion.score}/5", "Комментарий": criterion.comment}
         )
     eval_df = pd.DataFrame(eval_data)
 
@@ -41,7 +41,38 @@ async def analyze_visit(audio_path: str):
         medications.append(med_str)
     meds_text = "\n".join(medications) if medications else "Назначений нет"
 
-    return transcript, recs_text, eval_df, gen_comment, complaints, diagnosis, meds_text
+    # Format Transcript with Highlights
+    transcript_content = analysis.formatted_transcript if analysis.formatted_transcript else transcript
+    # Ensure newlines are preserved in HTML if not already <br>
+    if "<br>" not in transcript_content:
+        transcript_content = transcript_content.replace("\n", "<br>")
+    
+    formatted_transcript = f"""
+    <div style="
+        height: 300px; 
+        overflow-y: auto; 
+        padding: 12px; 
+        border: 1px solid #e5e7eb; 
+        border-radius: 8px; 
+        background-color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+        line-height: 1.6;
+        color: #1f2937;
+    ">
+        {transcript_content}
+    </div>
+    """
+
+    return formatted_transcript, recs_text, eval_df, gen_comment, complaints, diagnosis, meds_text
+
+# async def voice_recommendations(recs_text: str):
+#     if not recs_text:
+#         return None
+
+#     # Clean up bullets for TTS
+#     clean_text = recs_text.replace("- ", "").replace("\n", ". ")
+#     audio_path = await service.generate_voice_recommendations([clean_text])
+#     return audio_path
 
 
 def create_app():
@@ -60,7 +91,10 @@ def create_app():
                 analyze_btn = gr.Button("Начать прием (Анализ)", variant="primary")
 
             with gr.Column(scale=1):
-                transcript_output = gr.Textbox(label="Транскрипция", lines=10, interactive=False)
+                gr.Markdown("### 🗣️ Транскрипция")
+                transcript_output = gr.HTML(
+                    value='<div style="color: #6b7280; font-style: italic;">Здесь появится текст транскрипции с подсветкой ключевых моментов...</div>'
+                )
 
         # Средний блок: Структурированные данные
         gr.Markdown("### 📝 Данные приема")

@@ -20,12 +20,13 @@ class PrescriptionReview(BaseModel):
 
 
 class EvaluationCriterion(BaseModel):
+    name: str
     score: int = Field(..., ge=1, le=5)
     comment: str
 
 
 class DoctorEvaluation(BaseModel):
-    criteria: dict[str, EvaluationCriterion]
+    criteria: list[EvaluationCriterion]
     general_comment: str
 
 
@@ -33,3 +34,4 @@ class AnalysisResult(BaseModel):
     structured_data: StructuredData
     prescription_review: PrescriptionReview
     doctor_evaluation: DoctorEvaluation
+    formatted_transcript: str
