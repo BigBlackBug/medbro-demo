@@ -5,6 +5,7 @@ from openai import AsyncOpenAI
 from app.core.interfaces import LLMProvider
 from app.core.models import (
     AnalysisResult,
+    DialogueTurn,
     DoctorEvaluation,
     EvaluationCriterion,
     Medication,
@@ -16,8 +17,8 @@ from config.settings import config
 
 
 class MockLLM(LLMProvider):
-    async def analyze(self, text: str, system_prompt: str) -> AnalysisResult:
-        logger.info("MockLLM: Analyzing text...")
+    async def analyze(self, dialogue: list[DialogueTurn], system_prompt: str) -> AnalysisResult:
+        logger.info("MockLLM: Analyzing dialogue...")
         await asyncio.sleep(2)
         return AnalysisResult(
             structured_data=StructuredData(
@@ -77,13 +78,40 @@ class MockLLM(LLMProvider):
             ),
         )
 
+    async def analyze_raw(self, text: str, system_prompt: str) -> AnalysisResult:
+        logger.info("MockLLM: Analyzing raw text...")
+        # Reuse the same mock response
+        return await self.analyze([], system_prompt)
+
 
 class OpenAILLM(LLMProvider):
     def __init__(self):
         self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
 
-    async def analyze(self, text: str, system_prompt: str) -> AnalysisResult:
+    async def analyze(self, dialogue: list[DialogueTurn], system_prompt: str) -> AnalysisResult:
+        # Format dialogue list into a single string for the prompt
+        dialogue_text = "\n".join([f"{turn.speaker}: {turn.text}" for turn in dialogue])
         logger.info(f"OpenAILLM: Sending request to {config.LLM_MODEL}")
+        
+        response = await self.client.beta.chat.completions.parse(
+            model=config.LLM_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": dialogue_text},
+            ],
+            response_format=AnalysisResult,
+        )
+
+        parsed_result = response.choices[0].message.parsed
+        if not parsed_result:
+            logger.error("OpenAILLM: Received empty or invalid response")
+            raise ValueError("Empty or invalid response from LLM")
+
+        logger.info("OpenAILLM: Received valid response")
+        return parsed_result
+
+    async def analyze_raw(self, text: str, system_prompt: str) -> AnalysisResult:
+        logger.info(f"OpenAILLM: Sending raw request to {config.LLM_MODEL}")
         response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=[

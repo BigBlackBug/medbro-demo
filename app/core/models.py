@@ -30,6 +30,11 @@ class DoctorEvaluation(BaseModel):
     general_comment: str
 
 
+class DialogueTurn(BaseModel):
+    speaker: str
+    text: str
+
+
 class AnalysisResult(BaseModel):
     structured_data: StructuredData
     prescription_review: PrescriptionReview

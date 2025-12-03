@@ -30,6 +30,7 @@ class AppConfig(BaseSettings):
     OPENAI_API_KEY: str = Field(default="")
     LLM_MODEL: str = "gpt-5.1"
     STT_MODEL: str = "gpt-4o-transcribe"
+    STT_DIARIZATION_MODEL: str = "gpt-4o-transcribe-diarize"
     TTS_MODEL: str = "tts-1"
 
     # Mocking

@@ -42,7 +42,16 @@ async def analyze_visit(audio_path: str):
     meds_text = "\n".join(medications) if medications else "Назначений нет"
 
     # Format Transcript with Highlights
-    transcript_content = analysis.formatted_transcript if analysis.formatted_transcript else transcript
+    if analysis.formatted_transcript:
+        transcript_content = analysis.formatted_transcript
+    else:
+        if isinstance(transcript, list):
+            transcript_content = "<br>".join(
+                [f"<b>{t.speaker}:</b> {t.text}" for t in transcript]
+            )
+        else:
+            transcript_content = str(transcript)
+
     # Ensure newlines are preserved in HTML if not already <br>
     if "<br>" not in transcript_content:
         transcript_content = transcript_content.replace("\n", "<br>")

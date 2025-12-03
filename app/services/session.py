@@ -1,6 +1,6 @@
 import uuid
 
-from app.core.models import AnalysisResult
+from app.core.models import AnalysisResult, DialogueTurn
 from app.services.llm import get_llm_provider
 from app.services.stt import get_stt_provider
 from app.services.tts import get_tts_provider
@@ -16,18 +16,18 @@ class MedicalSessionService:
         self.tts = get_tts_provider()
         logger.info(f"MedicalSessionService initialized. Use Mock: {config.USE_MOCK_SERVICES}")
 
-    async def process_audio(self, audio_path: str) -> tuple[str, AnalysisResult]:
+    async def process_audio(self, audio_path: str) -> tuple[str | list[DialogueTurn], AnalysisResult]:
         logger.info(f"Processing audio file: {audio_path}")
 
         # 1. STT
         logger.info("Starting STT transcription...")
-        transcript = await self.stt.transcribe(audio_path)
-        logger.info(f"STT completed. Transcript length: {len(transcript)} chars")
+        transcript: str = await self.stt.transcribe_raw(audio_path)
+        logger.info(f"STT completed. Transcript length: {len(transcript)}")
 
         # 2. LLM Analysis
         logger.info("Starting LLM analysis...")
-        system_prompt = get_analysis_prompt()
-        analysis = await self.llm.analyze(transcript, system_prompt)
+        system_prompt: str = get_analysis_prompt()
+        analysis: AnalysisResult = await self.llm.analyze_raw(transcript, system_prompt)
         logger.info("LLM analysis completed successfully.")
 
         return transcript, analysis
