@@ -36,7 +36,7 @@ class AppConfig(BaseSettings):
     USE_MOCK_SERVICES: bool = True
 
     # Application Paths
-    TEMP_DIR: Path = BASE_DIR / "temp"
+    TEMP_DIR: Path = BASE_DIR / "_temp"
 
     # Criteria (Doctor Evaluation)
     EVALUATION_CRITERIA: dict[str, str] = Field(default_factory=load_criteria_from_yaml)

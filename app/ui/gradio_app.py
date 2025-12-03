@@ -28,25 +28,30 @@ async def analyze_visit(audio_path: str):
     # General Comment
     gen_comment = analysis.doctor_evaluation.general_comment
 
-    return transcript, recs_text, eval_df, gen_comment, None  # Clear previous audio
+    # Structured Data
+    complaints = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
+    diagnosis = analysis.structured_data.diagnosis or "Не установлен"
+    medications = []
+    for m in analysis.structured_data.medications:
+        med_str = f"- {m.name}"
+        if m.dosage:
+            med_str += f" ({m.dosage})"
+        if m.frequency:
+            med_str += f", {m.frequency}"
+        medications.append(med_str)
+    meds_text = "\n".join(medications) if medications else "Назначений нет"
 
-
-async def voice_recommendations(recs_text: str):
-    if not recs_text:
-        return None
-
-    # Clean up bullets for TTS
-    clean_text = recs_text.replace("- ", "").replace("\n", ". ")
-    audio_path = await service.generate_voice_recommendations([clean_text])
-    return audio_path
+    return transcript, recs_text, eval_df, gen_comment, complaints, diagnosis, meds_text
 
 
 def create_app():
     with gr.Blocks(title="Medical AI Assistant") as app:
+        gr.HTML("<style>footer {visibility: hidden}</style>")
         gr.Markdown("## 🏥 Medical AI Assistant Demo")
 
+        # Верхний блок: Аудио и Транскрипция
         with gr.Row():
-            with gr.Column():
+            with gr.Column(scale=1):
                 audio_input = gr.Audio(
                     sources=["microphone", "upload"],
                     type="filepath",
@@ -54,30 +59,50 @@ def create_app():
                 )
                 analyze_btn = gr.Button("Начать прием (Анализ)", variant="primary")
 
-            with gr.Column():
+            with gr.Column(scale=1):
                 transcript_output = gr.Textbox(label="Транскрипция", lines=10, interactive=False)
 
+        # Средний блок: Структурированные данные
+        gr.Markdown("### 📝 Данные приема")
         with gr.Row():
             with gr.Column():
-                gr.Markdown("### 💊 Рекомендации по назначению")
-                recs_output = gr.Textbox(label="Список рекомендаций", lines=5, interactive=False)
-                voice_btn = gr.Button("🔊 Озвучить рекомендации")
-                audio_output = gr.Audio(label="Озвучка", interactive=False, autoplay=True)
+                complaints_output = gr.Textbox(label="Жалобы", lines=5, interactive=False)
+            with gr.Column():
+                diagnosis_output = gr.Textbox(label="Диагноз", lines=2, interactive=False)
+            with gr.Column():
+                meds_output = gr.Textbox(label="Назначения", lines=5, interactive=False)
+
+        # Нижний блок: Рекомендации и Оценка
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("### 💊 Клинические рекомендации")
+                recs_output = gr.Textbox(
+                    label="Рекомендации для врача", lines=10, interactive=False
+                )
 
             with gr.Column():
-                gr.Markdown("### 📋 Оценка работы врача")
+                gr.Markdown("### 📋 Оценка коммуникации")
                 eval_table = gr.Dataframe(
-                    label="Чек-лист", headers=["Критерий", "Оценка", "Комментарий"]
+                    label="Чек-лист врача", headers=["Критерий", "Оценка", "Комментарий"]
                 )
-                general_comment = gr.Textbox(label="Общий комментарий", lines=3, interactive=False)
+
+        # Финальный комментарий
+        gr.Markdown("---")
+        general_comment = gr.Textbox(label="Общее заключение", lines=3, interactive=False)
 
         # Actions
         analyze_btn.click(
             fn=analyze_visit,
             inputs=[audio_input],
-            outputs=[transcript_output, recs_output, eval_table, general_comment, audio_output],
+            outputs=[
+                transcript_output,
+                recs_output,
+                eval_table,
+                general_comment,
+                complaints_output,
+                diagnosis_output,
+                meds_output,
+            ],
         )
-
-        voice_btn.click(fn=voice_recommendations, inputs=[recs_output], outputs=[audio_output])
 
     return app
