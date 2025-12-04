@@ -3,58 +3,14 @@ import pandas as pd
 
 from app.core.models import AnalysisResult, DialogueTurn
 from app.services.session import get_session_service
+from config.prompts import get_analysis_prompt, SYSTEM_PROMPT_GENERATE_DIALOGUE
+from config.logger import logger
 
 service = get_session_service()
 
 
-def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResult):
-    # Format Recommendations
-    recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
-    if not recs_text:
-        recs_text = "No recommendations."
-
-    # Format Evaluation Table
-    eval_data = []
-    for criterion in analysis.doctor_evaluation.criteria:
-        eval_data.append(
-            {
-                "Criterion": criterion.name,
-                "Score": f"{criterion.score}/5",
-                "Comment": criterion.comment,
-            }
-        )
-    eval_df = pd.DataFrame(eval_data)
-
-    # General Comment
-    gen_comment = analysis.doctor_evaluation.general_comment
-
-    # Structured Data
-    complaints = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
-    diagnosis = analysis.structured_data.diagnosis or "Not established"
-    medications = []
-    for m in analysis.structured_data.medications:
-        med_str = f"- {m.name}"
-        if m.dosage:
-            med_str += f" ({m.dosage})"
-        if m.frequency:
-            med_str += f", {m.frequency}"
-        medications.append(med_str)
-    meds_text = "\n".join(medications) if medications else "No prescriptions"
-
-    # Format Transcript with Highlights
-    if analysis.formatted_transcript:
-        transcript_content = analysis.formatted_transcript
-    else:
-        if isinstance(transcript, list):
-            transcript_content = "<br>".join([f"<b>{t.speaker}:</b> {t.text}" for t in transcript])
-        else:
-            transcript_content = str(transcript)
-
-    # Ensure newlines are preserved in HTML if not already <br>
-    if "<br>" not in transcript_content:
-        transcript_content = transcript_content.replace("\n", "<br>")
-
-    formatted_transcript = f"""
+def format_transcript_html(content: str) -> str:
+    return f"""
     <div style="
         height: 300px; 
         overflow-y: auto; 
@@ -66,24 +22,153 @@ def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResul
         line-height: 1.6;
         color: #1f2937;
     ">
-        {transcript_content}
+        {content}
     </div>
     """
 
-    return formatted_transcript, recs_text, eval_df, gen_comment, complaints, diagnosis, meds_text
+
+def format_transcript_plain(transcript: list[DialogueTurn]) -> str:
+    content = "<br>".join([f'<b style="color: #000000;">{t.speaker}:</b> {t.text}' for t in transcript])
+    return format_transcript_html(content)
+
+
+def format_transcript_highlighted(analysis: AnalysisResult, transcript: list[DialogueTurn]) -> str:
+    if analysis.formatted_transcript:
+        content = analysis.formatted_transcript
+        if "<br>" not in content:
+            content = content.replace("\n", "<br>")
+        return format_transcript_html(content)
+    return format_transcript_plain(transcript)
 
 
 async def analyze_visit(audio_path: str):
     if not audio_path:
-        return "No audio provided", "", pd.DataFrame(), "", "", "", ""
+        yield "No audio provided", "", pd.DataFrame(), "", "", "", ""
+        return
 
-    transcript, analysis = await service.process_audio(audio_path)
-    return format_results(transcript, analysis)
+    logger.info(f"Starting audio processing for: {audio_path}")
+    
+    transcript_raw = await service.stt.transcribe(audio_path)
+    logger.info(f"Transcription completed: {len(transcript_raw)} turns")
+    
+    yield (
+        format_transcript_plain(transcript_raw),
+        "⏳ Analyzing...",
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        gr.skip()
+    )
+    
+    system_prompt = get_analysis_prompt()
+    analysis = await service.llm.analyze(transcript_raw, system_prompt)
+    logger.info("Analysis completed")
+    
+    recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
+    if not recs_text:
+        recs_text = "No recommendations."
+
+    eval_data = []
+    for criterion in analysis.doctor_evaluation.criteria:
+        eval_data.append(
+            {
+                "Criterion": criterion.name,
+                "Score": f"{criterion.score}/5",
+                "Comment": criterion.comment,
+            }
+        )
+    eval_df = pd.DataFrame(eval_data)
+
+    gen_comment = analysis.doctor_evaluation.general_comment
+
+    complaints = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
+    diagnosis = analysis.structured_data.diagnosis or "Not established"
+    medications = []
+    for m in analysis.structured_data.medications:
+        med_str = f"- {m.name}"
+        if m.dosage:
+            med_str += f" ({m.dosage})"
+        if m.frequency:
+            med_str += f", {m.frequency}"
+        medications.append(med_str)
+    meds_text = "\n".join(medications) if medications else "No prescriptions"
+    
+    yield (
+        format_transcript_highlighted(analysis, transcript_raw),
+        recs_text,
+        eval_df,
+        gen_comment,
+        complaints,
+        diagnosis,
+        meds_text
+    )
 
 
 async def generate_and_analyze():
-    transcript, analysis = await service.generate_and_analyze_sample()
-    return format_results(transcript, analysis)
+    logger.info("Generating sample dialogue...")
+    
+    generated_dialogue = await service.llm.generate_dialogue(
+        SYSTEM_PROMPT_GENERATE_DIALOGUE
+    )
+    
+    transcript_turns = [
+        DialogueTurn(speaker=turn.role, text=turn.text) for turn in generated_dialogue.dialogue
+    ]
+    logger.info(f"Dialogue generation completed: {len(transcript_turns)} turns")
+    
+    yield (
+        format_transcript_plain(transcript_turns),
+        "⏳ Analyzing...",
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        gr.skip()
+    )
+    
+    system_prompt = get_analysis_prompt()
+    analysis = await service.llm.analyze(transcript_turns, system_prompt)
+    logger.info("Analysis completed")
+    
+    recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
+    if not recs_text:
+        recs_text = "No recommendations."
+
+    eval_data = []
+    for criterion in analysis.doctor_evaluation.criteria:
+        eval_data.append(
+            {
+                "Criterion": criterion.name,
+                "Score": f"{criterion.score}/5",
+                "Comment": criterion.comment,
+            }
+        )
+    eval_df = pd.DataFrame(eval_data)
+
+    gen_comment = analysis.doctor_evaluation.general_comment
+
+    complaints = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
+    diagnosis = analysis.structured_data.diagnosis or "Not established"
+    medications = []
+    for m in analysis.structured_data.medications:
+        med_str = f"- {m.name}"
+        if m.dosage:
+            med_str += f" ({m.dosage})"
+        if m.frequency:
+            med_str += f", {m.frequency}"
+        medications.append(med_str)
+    meds_text = "\n".join(medications) if medications else "No prescriptions"
+    
+    yield (
+        format_transcript_highlighted(analysis, transcript_turns),
+        recs_text,
+        eval_df,
+        gen_comment,
+        complaints,
+        diagnosis,
+        meds_text
+    )
 
 
 async def play_recommendations(recommendations_text: str):
