@@ -4,7 +4,7 @@ import pandas as pd
 from app.core.models import AnalysisResult, DialogueTurn, ImageAttachment
 from app.services.session import get_session_service
 from config.logger import logger
-from config.prompts import SYSTEM_PROMPT_GENERATE_DIALOGUE, get_analysis_prompt
+from config.prompts import get_analysis_prompt, get_dialogue_generation_prompt
 
 service = get_session_service()
 
@@ -129,12 +129,17 @@ async def analyze_visit(audio_path: str, images: list | None, progress=gr.Progre
     )
 
 
-async def generate_and_analyze(progress=gr.Progress()):
+async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, progress=gr.Progress()):
     progress(0, desc="Generating sample dialogue...")
-    logger.info("Generating sample dialogue...")
+    diagnosis = diagnosis.strip() if diagnosis else None
+    if not diagnosis:
+        diagnosis = None
+    
+    logger.info(f"Generating sample dialogue (diagnosis: {diagnosis}, skill: {doctor_skill})...")
 
     progress(0.2, desc="Creating consultation scenario...")
-    generated_dialogue = await service.llm.generate_dialogue(SYSTEM_PROMPT_GENERATE_DIALOGUE)
+    system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
+    generated_dialogue = await service.llm.generate_dialogue(system_prompt=system_prompt, diagnosis=diagnosis)
 
     transcript_turns = [
         DialogueTurn(speaker=turn.role, text=turn.text) for turn in generated_dialogue.dialogue
@@ -213,23 +218,39 @@ def create_app():
         gr.HTML("<style>footer {visibility: hidden}</style>")
         gr.Markdown("## 🏥 Medical AI Assistant Demo")
 
-        # Top Block: Audio, Images and Transcription
+        # Top Block: Input Tabs and Transcription
         with gr.Row():
             with gr.Column(scale=1):
-                audio_input = gr.Audio(
-                    sources=["microphone", "upload"],
-                    type="filepath",
-                    label="Consultation Recording / Upload Audio",
-                )
-                images_input = gr.File(
-                    file_count="multiple",
-                    file_types=["image"],
-                    label="📷 Medical Images (X-rays, Lab Reports, Prescriptions)",
-                    type="filepath",
-                )
-                with gr.Row():
-                    analyze_btn = gr.Button("Start Consultation (Analyze)", variant="primary")
-                    generate_btn = gr.Button("Generate Example and Analyze", variant="secondary")
+                with gr.Tabs():
+                    with gr.Tab("📁 Upload Recording"):
+                        audio_input = gr.Audio(
+                            sources=["microphone", "upload"],
+                            type="filepath",
+                            label="Consultation Recording / Upload Audio",
+                        )
+                        images_input = gr.File(
+                            file_count="multiple",
+                            file_types=["image"],
+                            label="📷 Medical Images (X-rays, Lab Reports, Prescriptions)",
+                            type="filepath",
+                        )
+                        analyze_btn = gr.Button("Start Consultation", variant="primary", size="lg")
+                    
+                    with gr.Tab("🎭 Generate Example"):
+                        diagnosis_input = gr.Textbox(
+                            label="Diagnosis (optional)",
+                            placeholder="e.g., bronchitis, flu, pneumonia... Leave empty for random",
+                            lines=1,
+                        )
+                        doctor_skill_input = gr.Slider(
+                            minimum=0,
+                            maximum=10,
+                            value=5,
+                            step=1,
+                            label="Doctor's Skill Level",
+                            info="0=Novice, 5=Competent (2 years exp), 10=Expert Master",
+                        )
+                        generate_btn = gr.Button("Generate Example and Analyze", variant="secondary", size="lg")
 
             with gr.Column(scale=1):
                 gr.Markdown("### 🗣️ Transcription")
@@ -245,7 +266,7 @@ def create_app():
             with gr.Column():
                 diagnosis_output = gr.Textbox(label="Diagnosis", lines=2, interactive=False)
             with gr.Column():
-                meds_output = gr.Textbox(label="Prescriptions", lines=5, interactive=False)
+                meds_output = gr.Textbox(label="Medications", lines=5, interactive=False)
         
         with gr.Row():
             with gr.Column():
@@ -295,7 +316,7 @@ def create_app():
 
         generate_btn.click(
             fn=generate_and_analyze,
-            inputs=[],
+            inputs=[diagnosis_input, doctor_skill_input],
             outputs=outputs_list,
         )
 

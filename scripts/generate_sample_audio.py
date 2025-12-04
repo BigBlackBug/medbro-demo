@@ -50,7 +50,7 @@ def get_next_file_index() -> int:
     return max_index + 1
 
 
-async def generate_dialogue_audio(diagnosis: str | None = None) -> None:
+async def generate_dialogue_audio(diagnosis: str | None = None, doctor_skill: int = 5) -> None:
     client = AsyncOpenAI(api_key=API_KEY)
     llm = get_llm_provider()
 
@@ -58,14 +58,14 @@ async def generate_dialogue_audio(diagnosis: str | None = None) -> None:
 
     file_index = get_next_file_index()
     diagnosis_slug: str = sanitize_diagnosis_for_filename(diagnosis) if diagnosis else "random"
-    output_file = OUTPUT_DIR / f"{file_index:04d}_dialogue_{diagnosis_slug}.mp3"
+    output_file = OUTPUT_DIR / f"{file_index:04d}_dialogue_{diagnosis_slug}_skill{doctor_skill}.mp3"
 
     if diagnosis:
-        print(f"Generating new dialogue for diagnosis: {diagnosis}...")
+        print(f"Generating new dialogue for diagnosis: {diagnosis} (doctor skill: {doctor_skill}/10)...")
     else:
-        print("Generating new dialogue...")
+        print(f"Generating new dialogue (doctor skill: {doctor_skill}/10)...")
     
-    system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis)
+    system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
     generated_dialogue = await llm.generate_dialogue(system_prompt=system_prompt, diagnosis=diagnosis)
     dialogue_script = generated_dialogue.dialogue
 
@@ -123,6 +123,14 @@ if __name__ == "__main__":
         default=None,
         help="Specific diagnosis to generate dialogue about (optional)",
     )
+    parser.add_argument(
+        "--doctor-skill",
+        type=int,
+        default=5,
+        choices=range(0, 11),
+        metavar="[0-10]",
+        help="Doctor's skill level from 0 (complete novice) to 10 (expert master). Default: 5 (competent with 2 years experience)",
+    )
     args = parser.parse_args()
     
-    asyncio.run(generate_dialogue_audio(diagnosis=args.diagnosis))
+    asyncio.run(generate_dialogue_audio(diagnosis=args.diagnosis, doctor_skill=args.doctor_skill))
