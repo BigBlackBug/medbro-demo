@@ -47,7 +47,8 @@ The dialogue should:
 - Sound natural and conversational.
 - Include typical doctor questions (symptoms, duration, medical history, allergies) and patient answers.
 - Include a conclusion with diagnosis and prescriptions.
-- Consist of 6 replies, keep each reply short and concise.
+- Consist of 6-8 replies, keep each reply short and concise.
+- The dialogue must come to a conclusion with diagnosis and prescriptions.
 
 Output format:
 JSON object containing a list of replies under the key "dialogue".
