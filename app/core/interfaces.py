@@ -31,7 +31,7 @@ class TTSProvider(ABC):
     @abstractmethod
     async def speak(self, text: str, output_path: str, voice: str | None = None) -> str:
         """Converts text to speech and saves to output_path. Returns path.
-        
+
         Args:
             text: Text to convert to speech
             output_path: Path to save the audio file

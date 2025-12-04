@@ -90,10 +90,20 @@ class MockLLM(LLMProvider):
         await asyncio.sleep(1)
         return GeneratedDialogue(
             dialogue=[
-                GeneratedDialogueTurn(role="Врач", voice="sage", text="Добрый день. На что жалуетесь?"),
-                GeneratedDialogueTurn(role="Пациент", voice="fable", text="Здравствуйте, голова болит уже третий день."),
-                GeneratedDialogueTurn(role="Врач", voice="sage", text="Как болит? Пульсирует или давит?"),
-                GeneratedDialogueTurn(role="Пациент", voice="fable", text="Давит, как обручем стянуло."),
+                GeneratedDialogueTurn(
+                    role="Врач", voice="sage", text="Добрый день. На что жалуетесь?"
+                ),
+                GeneratedDialogueTurn(
+                    role="Пациент",
+                    voice="fable",
+                    text="Здравствуйте, голова болит уже третий день.",
+                ),
+                GeneratedDialogueTurn(
+                    role="Врач", voice="sage", text="Как болит? Пульсирует или давит?"
+                ),
+                GeneratedDialogueTurn(
+                    role="Пациент", voice="fable", text="Давит, как обручем стянуло."
+                ),
                 GeneratedDialogueTurn(role="Врач", voice="sage", text="Понятно. Давление мерили?"),
                 GeneratedDialogueTurn(role="Пациент", voice="fable", text="Нет, не мерил."),
             ]
@@ -108,7 +118,7 @@ class OpenAILLM(LLMProvider):
         # Format dialogue list into a single string for the prompt
         dialogue_text = "\n".join([f"{turn.speaker}: {turn.text}" for turn in dialogue])
         logger.info(f"OpenAILLM: Sending request to {config.LLM_MODEL}")
-        
+
         response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=[

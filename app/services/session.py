@@ -1,10 +1,11 @@
 import uuid
+
 from app.core.models import AnalysisResult, DialogueTurn, GeneratedDialogue
 from app.services.llm import get_llm_provider
 from app.services.stt import get_stt_provider
 from app.services.tts import get_tts_provider
 from config.logger import logger
-from config.prompts import get_analysis_prompt, SYSTEM_PROMPT_GENERATE_DIALOGUE
+from config.prompts import SYSTEM_PROMPT_GENERATE_DIALOGUE, get_analysis_prompt
 from config.settings import config
 
 
@@ -15,7 +16,9 @@ class MedicalSessionService:
         self.tts = get_tts_provider()
         logger.info(f"MedicalSessionService initialized. Use Mock: {config.USE_MOCK_SERVICES}")
 
-    async def process_audio(self, audio_path: str) -> tuple[str | list[DialogueTurn], AnalysisResult]:
+    async def process_audio(
+        self, audio_path: str
+    ) -> tuple[str | list[DialogueTurn], AnalysisResult]:
         logger.info(f"Processing audio file: {audio_path}")
 
         # 1. STT
@@ -43,14 +46,15 @@ class MedicalSessionService:
 
     async def generate_and_analyze_sample(self) -> tuple[str | list[DialogueTurn], AnalysisResult]:
         logger.info("Generating sample dialogue...")
-        
+
         # 1. Generate dialogue text
-        generated_dialogue: GeneratedDialogue = await self.llm.generate_dialogue(SYSTEM_PROMPT_GENERATE_DIALOGUE)
-        
+        generated_dialogue: GeneratedDialogue = await self.llm.generate_dialogue(
+            SYSTEM_PROMPT_GENERATE_DIALOGUE
+        )
+
         # 2. Convert to DialogueTurn list
         transcript_turns = [
-            DialogueTurn(speaker=turn.role, text=turn.text) 
-            for turn in generated_dialogue.dialogue
+            DialogueTurn(speaker=turn.role, text=turn.text) for turn in generated_dialogue.dialogue
         ]
 
         # 3. LLM Analysis directly on the dialogue

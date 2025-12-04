@@ -1,8 +1,8 @@
 import gradio as gr
 import pandas as pd
 
-from app.services.session import get_session_service
 from app.core.models import AnalysisResult, DialogueTurn
+from app.services.session import get_session_service
 
 service = get_session_service()
 
@@ -17,7 +17,11 @@ def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResul
     eval_data = []
     for criterion in analysis.doctor_evaluation.criteria:
         eval_data.append(
-            {"Criterion": criterion.name, "Score": f"{criterion.score}/5", "Comment": criterion.comment}
+            {
+                "Criterion": criterion.name,
+                "Score": f"{criterion.score}/5",
+                "Comment": criterion.comment,
+            }
         )
     eval_df = pd.DataFrame(eval_data)
 
@@ -42,16 +46,14 @@ def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResul
         transcript_content = analysis.formatted_transcript
     else:
         if isinstance(transcript, list):
-            transcript_content = "<br>".join(
-                [f"<b>{t.speaker}:</b> {t.text}" for t in transcript]
-            )
+            transcript_content = "<br>".join([f"<b>{t.speaker}:</b> {t.text}" for t in transcript])
         else:
             transcript_content = str(transcript)
 
     # Ensure newlines are preserved in HTML if not already <br>
     if "<br>" not in transcript_content:
         transcript_content = transcript_content.replace("\n", "<br>")
-    
+
     formatted_transcript = f"""
     <div style="
         height: 300px; 
@@ -151,7 +153,7 @@ def create_app():
             inputs=[audio_input],
             outputs=outputs_list,
         )
-        
+
         generate_btn.click(
             fn=generate_and_analyze,
             inputs=[],

@@ -21,7 +21,8 @@ class MockSTT(STTProvider):
             ),
             DialogueTurn(speaker="Врач", text="Понятно. Есть ли мокрота? Аллергия на лекарства?"),
             DialogueTurn(
-                speaker="Пациент", text="Мокроты нет, кашель сухой. Аллергии вроде нет, но я не уверен."
+                speaker="Пациент",
+                text="Мокроты нет, кашель сухой. Аллергии вроде нет, но я не уверен.",
             ),
             DialogueTurn(
                 speaker="Врач",
@@ -57,7 +58,7 @@ class DeepgramSTT(STTProvider):
         # Run synchronous Deepgram call in executor to avoid blocking the event loop
         loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(
-            None, 
+            None,
             lambda: self.client.listen.v1.media.transcribe_file(
                 request=buffer_data,
                 model=config.DEEPGRAM_MODEL,
@@ -66,7 +67,7 @@ class DeepgramSTT(STTProvider):
                 utterances=True,
                 paragraphs=True,
                 punctuate=True,
-            )
+            ),
         )
 
         dialogue: list[DialogueTurn] = []
@@ -78,18 +79,22 @@ class DeepgramSTT(STTProvider):
                 return []
 
             alternative = results.channels[0].alternatives[0]
-            
-            logger.info(f"Has paragraphs: {hasattr(alternative, 'paragraphs') and alternative.paragraphs is not None}")
-            logger.info(f"Has utterances: {hasattr(alternative, 'utterances') and alternative.utterances is not None}")
 
-            if hasattr(alternative, 'utterances') and alternative.utterances:
+            logger.info(
+                f"Has paragraphs: {hasattr(alternative, 'paragraphs') and alternative.paragraphs is not None}"
+            )
+            logger.info(
+                f"Has utterances: {hasattr(alternative, 'utterances') and alternative.utterances is not None}"
+            )
+
+            if hasattr(alternative, "utterances") and alternative.utterances:
                 logger.info(f"Processing {len(alternative.utterances)} utterances")
                 for utterance in alternative.utterances:
                     speaker = f"Speaker {utterance.speaker}"
                     text = utterance.transcript
                     logger.info(f"Utterance: {speaker} - {text[:50]}...")
                     dialogue.append(DialogueTurn(speaker=speaker, text=text))
-            elif hasattr(alternative, 'paragraphs') and alternative.paragraphs:
+            elif hasattr(alternative, "paragraphs") and alternative.paragraphs:
                 logger.info(f"Processing paragraphs")
                 for paragraph in alternative.paragraphs.paragraphs:
                     speaker = f"Speaker {paragraph.speaker}"
@@ -110,20 +115,20 @@ class DeepgramSTT(STTProvider):
 
     async def transcribe_raw(self, audio_path: str) -> str:
         logger.info(f"DeepgramSTT: Transcribing raw {audio_path}")
-        
+
         with open(audio_path, "rb") as audio_file:
             buffer_data = audio_file.read()
 
         loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(
-            None, 
+            None,
             lambda: self.client.listen.v1.media.transcribe_file(
                 request=buffer_data,
                 model=config.DEEPGRAM_MODEL,
                 smart_format=True,
-            )
+            ),
         )
-        
+
         return response.results.channels[0].alternatives[0].transcript
 
 
@@ -133,38 +138,40 @@ class OpenAI_STT(STTProvider):
 
     async def transcribe(self, audio_path: str) -> list[DialogueTurn]:
         # Use the specific model requested for diarization
-        
-        logger.info(f"OpenAI_STT: Transcribing {audio_path} with model {config.STT_DIARIZATION_MODEL}")
-        
+
+        logger.info(
+            f"OpenAI_STT: Transcribing {audio_path} with model {config.STT_DIARIZATION_MODEL}"
+        )
+
         with open(audio_path, "rb") as audio_file:
             # Based on user documentation snippet
             transcript = await self.client.audio.transcriptions.create(
                 model=config.STT_DIARIZATION_MODEL,
                 file=audio_file,
-                response_format="verbose_json", # Changed from diarized_json which might be hypothetical/custom
+                response_format="verbose_json",  # Changed from diarized_json which might be hypothetical/custom
                 # OpenAI standard API doesn't support "diarized_json" natively in the base endpoint yet unless using Whisper generic
-                # But this class was here before. I'll assume the previous code was correct for the user's setup, 
+                # But this class was here before. I'll assume the previous code was correct for the user's setup,
                 # or maybe it was placeholder. I won't touch OpenAI implementation much unless necessary.
                 # Actually the previous code had "diarized_json". I'll leave it alone if I don't use it.
             )
-            
+
         # Note: The previous implementation assumed transcript.segments had speaker info.
         # Standard OpenAI Whisper API does NOT return speaker diarization in segments.
         # But since I'm adding Deepgram, I don't need to fix OpenAI implementation right now unless requested.
-            
+
         dialogue = []
         # Placeholder logic since OpenAI standard doesn't diarize by default without addons
-        if hasattr(transcript, 'segments'):
+        if hasattr(transcript, "segments"):
             for segment in transcript.segments:
                 # speaker = getattr(segment, "speaker", "Unknown") # OpenAI segments don't have speaker
-                speaker = "Unknown" 
+                speaker = "Unknown"
                 text = segment.text.strip()
                 if text:
                     logger.info(f"OpenAI_STT: Transcribed {text} from {speaker}")
                     dialogue.append(DialogueTurn(speaker=speaker, text=text))
         else:
             dialogue.append(DialogueTurn(speaker="Unknown", text=transcript.text))
-        
+
         return dialogue
 
     async def transcribe_raw(self, audio_path: str) -> str:

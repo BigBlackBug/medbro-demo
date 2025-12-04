@@ -1,5 +1,4 @@
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -29,7 +28,7 @@ def get_next_file_index() -> int:
     existing_files = list(OUTPUT_DIR.glob("*_dialogue_sample.mp3"))
     if not existing_files:
         return 1
-    
+
     max_index = 0
     for file in existing_files:
         try:
@@ -37,7 +36,7 @@ def get_next_file_index() -> int:
             max_index = max(max_index, index)
         except (ValueError, IndexError):
             continue
-    
+
     return max_index + 1
 
 
