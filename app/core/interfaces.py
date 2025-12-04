@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.core.models import AnalysisResult, DialogueTurn
+from app.core.models import AnalysisResult, DialogueTurn, GeneratedDialogue
 
 
 class STTProvider(ABC):
@@ -22,8 +22,18 @@ class LLMProvider(ABC):
     async def analyze_raw(self, text: str, system_prompt: str) -> AnalysisResult:
         """Analyzes raw text and returns structured result."""
 
+    @abstractmethod
+    async def generate_dialogue(self, system_prompt: str) -> GeneratedDialogue:
+        """Generates a realistic doctor-patient dialogue."""
+
 
 class TTSProvider(ABC):
     @abstractmethod
-    async def speak(self, text: str, output_path: str) -> str:
-        """Converts text to speech and saves to output_path. Returns path."""
+    async def speak(self, text: str, output_path: str, voice: str | None = None) -> str:
+        """Converts text to speech and saves to output_path. Returns path.
+        
+        Args:
+            text: Text to convert to speech
+            output_path: Path to save the audio file
+            voice: Optional voice name (e.g. "alloy", "sage", "fable"). If None, uses default.
+        """

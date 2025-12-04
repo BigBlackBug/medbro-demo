@@ -40,3 +40,13 @@ class AnalysisResult(BaseModel):
     prescription_review: PrescriptionReview
     doctor_evaluation: DoctorEvaluation
     formatted_transcript: str
+
+
+class GeneratedDialogueTurn(BaseModel):
+    role: str
+    voice: str
+    text: str
+
+
+class GeneratedDialogue(BaseModel):
+    dialogue: list[GeneratedDialogueTurn]

@@ -9,8 +9,8 @@ from config.settings import config
 
 
 class MockTTS(TTSProvider):
-    async def speak(self, text: str, output_path: str) -> str:
-        logger.info(f"MockTTS: Generating speech for text (len={len(text)})")
+    async def speak(self, text: str, output_path: str, voice: str | None = None) -> str:
+        logger.info(f"MockTTS: Generating speech for text (len={len(text)}), voice={voice}")
         await asyncio.sleep(1)
         # In a real mock, we might copy a pre-recorded file here
         # For now, we assume the file exists or we create a dummy one
@@ -25,10 +25,11 @@ class OpenAITTS(TTSProvider):
     def __init__(self):
         self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
 
-    async def speak(self, text: str, output_path: str) -> str:
-        logger.info(f"OpenAITTS: Synthesizing speech to {output_path}")
+    async def speak(self, text: str, output_path: str, voice: str | None = None) -> str:
+        target_voice = voice or "alloy"
+        logger.info(f"OpenAITTS: Synthesizing speech to {output_path} with voice {target_voice}")
         async with self.client.audio.speech.with_streaming_response.create(
-            model=config.TTS_MODEL, voice="alloy", input=text
+            model=config.TTS_MODEL, voice=target_voice, input=text
         ) as response:
             await response.stream_to_file(output_path)
         return output_path

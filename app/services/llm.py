@@ -8,6 +8,8 @@ from app.core.models import (
     DialogueTurn,
     DoctorEvaluation,
     EvaluationCriterion,
+    GeneratedDialogue,
+    GeneratedDialogueTurn,
     Medication,
     PrescriptionReview,
     StructuredData,
@@ -83,6 +85,20 @@ class MockLLM(LLMProvider):
         # Reuse the same mock response
         return await self.analyze([], system_prompt)
 
+    async def generate_dialogue(self, system_prompt: str) -> GeneratedDialogue:
+        logger.info("MockLLM: Generating dialogue...")
+        await asyncio.sleep(1)
+        return GeneratedDialogue(
+            dialogue=[
+                GeneratedDialogueTurn(role="Врач", voice="sage", text="Добрый день. На что жалуетесь?"),
+                GeneratedDialogueTurn(role="Пациент", voice="fable", text="Здравствуйте, голова болит уже третий день."),
+                GeneratedDialogueTurn(role="Врач", voice="sage", text="Как болит? Пульсирует или давит?"),
+                GeneratedDialogueTurn(role="Пациент", voice="fable", text="Давит, как обручем стянуло."),
+                GeneratedDialogueTurn(role="Врач", voice="sage", text="Понятно. Давление мерили?"),
+                GeneratedDialogueTurn(role="Пациент", voice="fable", text="Нет, не мерил."),
+            ]
+        )
+
 
 class OpenAILLM(LLMProvider):
     def __init__(self):
@@ -127,6 +143,25 @@ class OpenAILLM(LLMProvider):
             raise ValueError("Empty or invalid response from LLM")
 
         logger.info("OpenAILLM: Received valid response")
+        return parsed_result
+
+    async def generate_dialogue(self, system_prompt: str) -> GeneratedDialogue:
+        logger.info(f"OpenAILLM: Generating dialogue with {config.LLM_MODEL}")
+        response = await self.client.beta.chat.completions.parse(
+            model=config.LLM_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "Generate a realistic doctor-patient dialogue."},
+            ],
+            response_format=GeneratedDialogue,
+        )
+
+        parsed_result = response.choices[0].message.parsed
+        if not parsed_result:
+            logger.error("OpenAILLM: Received empty or invalid response for dialogue generation")
+            raise ValueError("Empty or invalid response from LLM")
+
+        logger.info("OpenAILLM: Received generated dialogue")
         return parsed_result
 
 

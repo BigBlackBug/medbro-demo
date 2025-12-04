@@ -2,16 +2,12 @@ import gradio as gr
 import pandas as pd
 
 from app.services.session import get_session_service
+from app.core.models import AnalysisResult, DialogueTurn
 
 service = get_session_service()
 
 
-async def analyze_visit(audio_path: str):
-    if not audio_path:
-        return "No audio provided", "", pd.DataFrame(), "", None
-
-    transcript, analysis = await service.process_audio(audio_path)
-
+def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResult):
     # Format Recommendations
     recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
     if not recs_text:
@@ -74,14 +70,18 @@ async def analyze_visit(audio_path: str):
 
     return formatted_transcript, recs_text, eval_df, gen_comment, complaints, diagnosis, meds_text
 
-# async def voice_recommendations(recs_text: str):
-#     if not recs_text:
-#         return None
 
-#     # Clean up bullets for TTS
-#     clean_text = recs_text.replace("- ", "").replace("\n", ". ")
-#     audio_path = await service.generate_voice_recommendations([clean_text])
-#     return audio_path
+async def analyze_visit(audio_path: str):
+    if not audio_path:
+        return "No audio provided", "", pd.DataFrame(), "", None
+
+    transcript, analysis = await service.process_audio(audio_path)
+    return format_results(transcript, analysis)
+
+
+async def generate_and_analyze():
+    transcript, analysis = await service.generate_and_analyze_sample()
+    return format_results(transcript, analysis)
 
 
 def create_app():
@@ -97,7 +97,9 @@ def create_app():
                     type="filepath",
                     label="Запись приема / Загрузка аудио",
                 )
-                analyze_btn = gr.Button("Начать прием (Анализ)", variant="primary")
+                with gr.Row():
+                    analyze_btn = gr.Button("Начать прием (Анализ)", variant="primary")
+                    generate_btn = gr.Button("Сгенерировать пример и проанализировать", variant="secondary")
 
             with gr.Column(scale=1):
                 gr.Markdown("### 🗣️ Транскрипция")
@@ -134,18 +136,26 @@ def create_app():
         general_comment = gr.Textbox(label="Общее заключение", lines=3, interactive=False)
 
         # Actions
+        outputs_list = [
+            transcript_output,
+            recs_output,
+            eval_table,
+            general_comment,
+            complaints_output,
+            diagnosis_output,
+            meds_output,
+        ]
+
         analyze_btn.click(
             fn=analyze_visit,
             inputs=[audio_input],
-            outputs=[
-                transcript_output,
-                recs_output,
-                eval_table,
-                general_comment,
-                complaints_output,
-                diagnosis_output,
-                meds_output,
-            ],
+            outputs=outputs_list,
+        )
+        
+        generate_btn.click(
+            fn=generate_and_analyze,
+            inputs=[],
+            outputs=outputs_list,
         )
 
     return app
