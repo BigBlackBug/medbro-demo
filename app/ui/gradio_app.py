@@ -11,13 +11,13 @@ def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResul
     # Format Recommendations
     recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
     if not recs_text:
-        recs_text = "Рекомендаций нет."
+        recs_text = "No recommendations."
 
     # Format Evaluation Table
     eval_data = []
     for criterion in analysis.doctor_evaluation.criteria:
         eval_data.append(
-            {"Критерий": criterion.name, "Оценка": f"{criterion.score}/5", "Комментарий": criterion.comment}
+            {"Criterion": criterion.name, "Score": f"{criterion.score}/5", "Comment": criterion.comment}
         )
     eval_df = pd.DataFrame(eval_data)
 
@@ -26,7 +26,7 @@ def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResul
 
     # Structured Data
     complaints = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
-    diagnosis = analysis.structured_data.diagnosis or "Не установлен"
+    diagnosis = analysis.structured_data.diagnosis or "Not established"
     medications = []
     for m in analysis.structured_data.medications:
         med_str = f"- {m.name}"
@@ -35,7 +35,7 @@ def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResul
         if m.frequency:
             med_str += f", {m.frequency}"
         medications.append(med_str)
-    meds_text = "\n".join(medications) if medications else "Назначений нет"
+    meds_text = "\n".join(medications) if medications else "No prescriptions"
 
     # Format Transcript with Highlights
     if analysis.formatted_transcript:
@@ -73,7 +73,7 @@ def format_results(transcript: str | list[DialogueTurn], analysis: AnalysisResul
 
 async def analyze_visit(audio_path: str):
     if not audio_path:
-        return "No audio provided", "", pd.DataFrame(), "", None
+        return "No audio provided", "", pd.DataFrame(), "", "", "", ""
 
     transcript, analysis = await service.process_audio(audio_path)
     return format_results(transcript, analysis)
@@ -89,51 +89,51 @@ def create_app():
         gr.HTML("<style>footer {visibility: hidden}</style>")
         gr.Markdown("## 🏥 Medical AI Assistant Demo")
 
-        # Верхний блок: Аудио и Транскрипция
+        # Top Block: Audio and Transcription
         with gr.Row():
             with gr.Column(scale=1):
                 audio_input = gr.Audio(
                     sources=["microphone", "upload"],
                     type="filepath",
-                    label="Запись приема / Загрузка аудио",
+                    label="Consultation Recording / Upload Audio",
                 )
                 with gr.Row():
-                    analyze_btn = gr.Button("Начать прием (Анализ)", variant="primary")
-                    generate_btn = gr.Button("Сгенерировать пример и проанализировать", variant="secondary")
+                    analyze_btn = gr.Button("Start Consultation (Analyze)", variant="primary")
+                    generate_btn = gr.Button("Generate Example and Analyze", variant="secondary")
 
             with gr.Column(scale=1):
-                gr.Markdown("### 🗣️ Транскрипция")
+                gr.Markdown("### 🗣️ Transcription")
                 transcript_output = gr.HTML(
-                    value='<div style="color: #6b7280; font-style: italic;">Здесь появится текст транскрипции с подсветкой ключевых моментов...</div>'
+                    value='<div style="color: #6b7280; font-style: italic;">Transcription text with key highlights will appear here...</div>'
                 )
 
-        # Средний блок: Структурированные данные
-        gr.Markdown("### 📝 Данные приема")
+        # Middle Block: Structured Data
+        gr.Markdown("### 📝 Consultation Data")
         with gr.Row():
             with gr.Column():
-                complaints_output = gr.Textbox(label="Жалобы", lines=5, interactive=False)
+                complaints_output = gr.Textbox(label="Complaints", lines=5, interactive=False)
             with gr.Column():
-                diagnosis_output = gr.Textbox(label="Диагноз", lines=2, interactive=False)
+                diagnosis_output = gr.Textbox(label="Diagnosis", lines=2, interactive=False)
             with gr.Column():
-                meds_output = gr.Textbox(label="Назначения", lines=5, interactive=False)
+                meds_output = gr.Textbox(label="Prescriptions", lines=5, interactive=False)
 
-        # Нижний блок: Рекомендации и Оценка
+        # Bottom Block: Recommendations and Evaluation
         with gr.Row():
             with gr.Column():
-                gr.Markdown("### 💊 Клинические рекомендации")
+                gr.Markdown("### 💊 Clinical Recommendations")
                 recs_output = gr.Textbox(
-                    label="Рекомендации для врача", lines=10, interactive=False
+                    label="Recommendations for Doctor", lines=10, interactive=False
                 )
 
             with gr.Column():
-                gr.Markdown("### 📋 Оценка коммуникации")
+                gr.Markdown("### 📋 Communication Evaluation")
                 eval_table = gr.Dataframe(
-                    label="Чек-лист врача", headers=["Критерий", "Оценка", "Комментарий"]
+                    label="Doctor Checklist", headers=["Criterion", "Score", "Comment"]
                 )
 
-        # Финальный комментарий
+        # Final Comment
         gr.Markdown("---")
-        general_comment = gr.Textbox(label="Общее заключение", lines=3, interactive=False)
+        general_comment = gr.Textbox(label="General Conclusion", lines=3, interactive=False)
 
         # Actions
         outputs_list = [

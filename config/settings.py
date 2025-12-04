@@ -25,7 +25,9 @@ def load_criteria_from_yaml() -> dict[str, str]:
 
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
-
+    
+    APP_NAME: str = "medbro"
+    
     # Models
     OPENAI_API_KEY: str = Field(default="")
     LLM_MODEL: str = "gpt-5.1"

@@ -1,12 +1,14 @@
 import logging
 import sys
 
+from config import settings
+
 
 def configure_logging():
     """Configures application logging using standard logging module."""
 
     # Create a custom logger
-    logger = logging.getLogger("med_assistant")
+    logger = logging.getLogger(settings.config.APP_NAME)
     # Set level based on config if we had a debug flag, otherwise default to INFO
     # For now, let's keep it INFO as base, or DEBUG if we want verbose console
     logger.setLevel(logging.INFO)
