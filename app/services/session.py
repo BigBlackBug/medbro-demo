@@ -20,13 +20,13 @@ class MedicalSessionService:
 
         # 1. STT
         logger.info("Starting STT transcription...")
-        transcript: str = await self.stt.transcribe_raw(audio_path)
-        logger.info(f"STT completed. Transcript length: {len(transcript)}")
+        transcript: list[DialogueTurn] = await self.stt.transcribe(audio_path)
+        logger.info(f"STT completed. Transcript turns: {len(transcript)}")
 
         # 2. LLM Analysis
         logger.info("Starting LLM analysis...")
         system_prompt: str = get_analysis_prompt()
-        analysis: AnalysisResult = await self.llm.analyze_raw(transcript, system_prompt)
+        analysis: AnalysisResult = await self.llm.analyze(transcript, system_prompt)
         logger.info("LLM analysis completed successfully.")
 
         return transcript, analysis
