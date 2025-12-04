@@ -1,5 +1,4 @@
 import gradio as gr
-import pandas as pd
 
 from app.core.models import AnalysisResult, DialogueTurn, ImageAttachment
 from app.services.session import get_session_service
@@ -27,6 +26,213 @@ def format_transcript_html(content: str) -> str:
     """
 
 
+def format_criteria_cards(criteria_list: list) -> str:
+    if not criteria_list:
+        return "<div>No evaluation data available</div>"
+    
+    cards_html = """
+    <div style="display: flex; flex-direction: column; gap: 12px; font-family: system-ui, -apple-system, sans-serif;">
+    """
+    
+    for criterion in criteria_list:
+        score = criterion["score"]
+        
+        if score >= 4:
+            color = "#166534"
+            bg_color = "#dcfce7"
+        elif score == 3:
+            color = "#92400e"
+            bg_color = "#fef3c7"
+        else:
+            color = "#991b1b"
+            bg_color = "#fee2e2"
+        
+        cards_html += f"""
+        <div style="
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            background-color: #ffffff;
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 600; font-size: 16px; color: #1f2937;">{criterion["name"]}</span>
+                <span style="
+                    background-color: {bg_color};
+                    color: {color};
+                    padding: 4px 12px;
+                    border-radius: 6px;
+                    font-weight: 600;
+                    font-size: 14px;
+                ">{score}/5</span>
+            </div>
+            <div style="color: #4b5563; line-height: 1.5;">{criterion["comment"]}</div>
+        </div>
+        """
+    
+    cards_html += "</div>"
+    return cards_html
+
+
+def format_recommendations_html(recommendations: list[str]) -> str:
+    if not recommendations:
+        return """
+        <div style="
+            padding: 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background-color: #f9fafb;
+            color: #6b7280;
+            font-family: system-ui, -apple-system, sans-serif;
+            text-align: center;
+        ">
+            No recommendations.
+        </div>
+        """
+    
+    html = """
+    <div style="
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        font-family: system-ui, -apple-system, sans-serif;
+    ">
+    """
+    
+    for idx, rec in enumerate(recommendations, 1):
+        html += f"""
+        <div style="
+            border-left: 4px solid #4b5563;
+            padding: 12px 16px;
+            background-color: #f9fafb;
+            border-radius: 6px;
+        ">
+            <div style="
+                display: flex;
+                gap: 12px;
+                align-items: start;
+            ">
+                <span style="
+                    background-color: #4b5563;
+                    color: white;
+                    border-radius: 50%;
+                    width: 24px;
+                    height: 24px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 600;
+                    font-size: 14px;
+                    flex-shrink: 0;
+                ">{idx}</span>
+                <div style="color: #1f2937; line-height: 1.6; padding-top: 2px;">{rec}</div>
+            </div>
+        </div>
+        """
+    
+    html += "</div>"
+    return html
+
+
+def format_data_card(title: str, content: str, emoji: str = "") -> str:
+    display_title = f"{emoji} {title}" if emoji else title
+    
+    if not content or content in ["Not established", "No prescriptions", "No images analyzed", "No significant findings"]:
+        content_color = "#9ca3af"
+        content_style = "font-style: italic;"
+    else:
+        content_color = "#1f2937"
+        content_style = ""
+    
+    return f"""
+    <div style="
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        background-color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+        height: 100%;
+    ">
+        <div style="
+            font-weight: 600;
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        ">{display_title}</div>
+        <div style="
+            color: {content_color};
+            line-height: 1.6;
+            white-space: pre-wrap;
+            {content_style}
+        ">{content}</div>
+    </div>
+    """
+
+
+def format_general_comment(comment: str) -> str:
+    if not comment:
+        comment = "No general comment provided."
+        color = "#9ca3af"
+        style = "font-style: italic;"
+    else:
+        color = "#1f2937"
+        style = ""
+    
+    return f"""
+    <div style="
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 20px;
+        background-color: #f9fafb;
+        font-family: system-ui, -apple-system, sans-serif;
+    ">
+        <div style="
+            font-weight: 600;
+            font-size: 16px;
+            color: #374151;
+            margin-bottom: 12px;
+        ">📋 General Conclusion</div>
+        <div style="
+            color: {color};
+            line-height: 1.6;
+            {style}
+        ">{comment}</div>
+    </div>
+    """
+
+
+def format_status(message: str, is_complete: bool = False) -> str:
+    if not message:
+        return ""
+    
+    if is_complete:
+        bg_color = "#dcfce7"
+        border_color = "#86efac"
+        text_color = "#166534"
+        icon = "✓"
+    else:
+        bg_color = "#dbeafe"
+        border_color = "#93c5fd"
+        text_color = "#1e40af"
+        icon = "⏳"
+    
+    return f"""
+    <div style="
+        padding: 12px 16px;
+        border-radius: 8px;
+        background-color: {bg_color};
+        border-left: 4px solid {border_color};
+        color: {text_color};
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        margin-top: 12px;
+    ">
+        <span style="font-weight: 600;">{icon}</span> {message}
+    </div>
+    """
+
+
 def format_transcript_plain(transcript: list[DialogueTurn]) -> str:
     content = "<br>".join(
         [f'<b style="color: #000000;">{t.speaker}:</b> {t.text}' for t in transcript]
@@ -43,15 +249,43 @@ def format_transcript_highlighted(analysis: AnalysisResult, transcript: list[Dia
     return format_transcript_plain(transcript)
 
 
-async def analyze_visit(audio_path: str, images: list | None, progress=gr.Progress()):
+async def analyze_visit(audio_path: str, images: list | None):
+    loading_html = "<div style='padding: 20px; text-align: center; color: #6b7280;'>⏳ Loading...</div>"
     if not audio_path:
-        yield "No audio provided", "", pd.DataFrame(), "", "", "", "", ""
+        yield (
+            "No audio provided", 
+            "<div>No audio provided</div>", 
+            "", 
+            "<div>No data</div>", 
+            loading_html, 
+            loading_html, 
+            loading_html, 
+            loading_html, 
+            loading_html, 
+            format_status("No audio provided", False),
+            gr.update(interactive=True),
+            gr.update(interactive=True),
+            gr.update(interactive=True),
+        )
         return
 
-    progress(0, desc="Starting audio processing...")
     logger.info(f"Starting audio processing for: {audio_path}")
+    yield (
+        "<div style='padding: 20px; text-align: center; color: #6b7280;'>Processing...</div>",
+        loading_html,
+        "",
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        format_status("Starting audio processing...", False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+    )
 
-    progress(0.2, desc="Transcribing audio...")
     transcript_raw = await service.stt.transcribe(audio_path)
     logger.info(f"Transcription completed: {len(transcript_raw)} turns")
     
@@ -65,44 +299,50 @@ async def analyze_visit(audio_path: str, images: list | None, progress=gr.Progre
                 image_attachments.append(ImageAttachment(file_path=img_path.name))
         logger.info(f"Processing {len(image_attachments)} image(s)")
 
-    progress(0.5, desc="Transcription complete")
     yield (
         format_transcript_plain(transcript_raw),
-        "⏳ Analyzing...",
-        pd.DataFrame({"": ["⏳ Loading..."]}),
-        "⏳ Loading...",
-        "⏳ Loading...",
-        "⏳ Loading...",
-        "⏳ Loading...",
-        "⏳ Loading...",
+        "<div style='padding: 20px; text-align: center; color: #6b7280;'>⏳ Analyzing...</div>",
+        "",
+        "<div style='padding: 20px; text-align: center;'>⏳ Loading...</div>",
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        format_status("Transcription complete. Analyzing consultation...", False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
     )
 
-    progress(0.6, desc="Analyzing consultation...")
     system_prompt = get_analysis_prompt()
     analysis = await service.llm.analyze(dialogue=transcript_raw, system_prompt=system_prompt, images=image_attachments)
     logger.info("Analysis completed")
 
-    progress(0.9, desc="Formatting results...")
+    recs_html = format_recommendations_html(analysis.prescription_review.recommendations)
+    recs_text = "\n\n".join(analysis.prescription_review.recommendations) if analysis.prescription_review.recommendations else "No recommendations."
 
-    recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
-    if not recs_text:
-        recs_text = "No recommendations."
-
-    eval_data = []
+    criteria_data = []
     for criterion in analysis.doctor_evaluation.criteria:
-        eval_data.append(
+        criteria_data.append(
             {
-                "Criterion": criterion.name,
-                "Score": f"{criterion.score}/5",
-                "Comment": criterion.comment,
+                "name": criterion.name,
+                "score": criterion.score,
+                "comment": criterion.comment,
             }
         )
-    eval_df = pd.DataFrame(eval_data)
+    eval_html = format_criteria_cards(criteria_data)
 
-    gen_comment = analysis.doctor_evaluation.general_comment
+    gen_comment_html = format_general_comment(analysis.doctor_evaluation.general_comment)
 
-    complaints = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
-    diagnosis = analysis.structured_data.diagnosis or "Not established"
+    complaints_text = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
+    if not complaints_text:
+        complaints_text = "No complaints recorded"
+    complaints_html = format_data_card(title="Complaints", content=complaints_text)
+    
+    diagnosis_text = analysis.structured_data.diagnosis or "Not established"
+    diagnosis_html = format_data_card(title="Diagnosis", content=diagnosis_text)
+    
     medications = []
     for m in analysis.structured_data.medications:
         med_str = f"- {m.name}"
@@ -112,32 +352,54 @@ async def analyze_visit(audio_path: str, images: list | None, progress=gr.Progre
             med_str += f", {m.frequency}"
         medications.append(med_str)
     meds_text = "\n".join(medications) if medications else "No prescriptions"
+    meds_html = format_data_card(title="Medications", content=meds_text)
     
     image_findings_text = "\n".join([f"- {f}" for f in analysis.structured_data.image_findings])
     if not image_findings_text:
         image_findings_text = "No images analyzed" if not images else "No significant findings"
+    image_findings_html = format_data_card(title="Image Analysis Findings", content=image_findings_text, emoji="🔬")
 
     yield (
         format_transcript_highlighted(analysis, transcript_raw),
+        recs_html,
         recs_text,
-        eval_df,
-        gen_comment,
-        complaints,
-        diagnosis,
-        meds_text,
-        image_findings_text,
+        eval_html,
+        gen_comment_html,
+        complaints_html,
+        diagnosis_html,
+        meds_html,
+        image_findings_html,
+        format_status("Analysis complete!", True),
+        gr.update(interactive=True),
+        gr.update(interactive=True),
+        gr.update(interactive=True),
     )
 
 
-async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, progress=gr.Progress()):
-    progress(0, desc="Generating sample dialogue...")
+async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
     diagnosis = diagnosis.strip() if diagnosis else None
     if not diagnosis:
         diagnosis = None
     
     logger.info(f"Generating sample dialogue (diagnosis: {diagnosis}, skill: {doctor_skill})...")
+    
+    loading_html = "<div style='padding: 20px; text-align: center; color: #6b7280;'>⏳ Loading...</div>"
+    yield (
+        loading_html,
+        loading_html,
+        "",
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        format_status("Generating sample dialogue...", False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+    )
 
-    progress(0.2, desc="Creating consultation scenario...")
     system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
     generated_dialogue = await service.llm.generate_dialogue(system_prompt=system_prompt, diagnosis=diagnosis)
 
@@ -146,43 +408,49 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, progres
     ]
     logger.info(f"Dialogue generation completed: {len(transcript_turns)} turns")
 
-    progress(0.5, desc="Dialogue generated")
     yield (
         format_transcript_plain(transcript_turns),
-        "⏳ Analyzing...",
-        pd.DataFrame({"": ["⏳ Loading..."]}),
-        "⏳ Loading...",
-        "⏳ Loading...",
-        "⏳ Loading...",
-        "⏳ Loading...",
-        "⏳ Loading...",
+        "<div style='padding: 20px; text-align: center; color: #6b7280;'>⏳ Analyzing...</div>",
+        "",
+        "<div style='padding: 20px; text-align: center;'>⏳ Loading...</div>",
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        loading_html,
+        format_status("Dialogue generated. Analyzing consultation...", False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
     )
 
-    progress(0.6, desc="Analyzing consultation...")
     system_prompt = get_analysis_prompt()
     analysis = await service.llm.analyze(dialogue=transcript_turns, system_prompt=system_prompt)
     logger.info("Analysis completed")
+    recs_html = format_recommendations_html(analysis.prescription_review.recommendations)
+    recs_text = "\n\n".join(analysis.prescription_review.recommendations) if analysis.prescription_review.recommendations else "No recommendations."
 
-    progress(0.9, desc="Formatting results...")
-    recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
-    if not recs_text:
-        recs_text = "No recommendations."
-
-    eval_data = []
+    criteria_data = []
     for criterion in analysis.doctor_evaluation.criteria:
-        eval_data.append(
+        criteria_data.append(
             {
-                "Criterion": criterion.name,
-                "Score": f"{criterion.score}/5",
-                "Comment": criterion.comment,
+                "name": criterion.name,
+                "score": criterion.score,
+                "comment": criterion.comment,
             }
         )
-    eval_df = pd.DataFrame(eval_data)
+    eval_html = format_criteria_cards(criteria_data)
 
-    gen_comment = analysis.doctor_evaluation.general_comment
+    gen_comment_html = format_general_comment(analysis.doctor_evaluation.general_comment)
 
-    complaints = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
-    diagnosis = analysis.structured_data.diagnosis or "Not established"
+    complaints_text = "\n".join([f"- {c}" for c in analysis.structured_data.complaints])
+    if not complaints_text:
+        complaints_text = "No complaints recorded"
+    complaints_html = format_data_card(title="Complaints", content=complaints_text)
+    
+    diagnosis_text = analysis.structured_data.diagnosis or "Not established"
+    diagnosis_html = format_data_card(title="Diagnosis", content=diagnosis_text)
+    
     medications = []
     for m in analysis.structured_data.medications:
         med_str = f"- {m.name}"
@@ -192,16 +460,24 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, progres
             med_str += f", {m.frequency}"
         medications.append(med_str)
     meds_text = "\n".join(medications) if medications else "No prescriptions"
+    meds_html = format_data_card(title="Medications", content=meds_text)
+    
+    image_findings_html = format_data_card(title="Image Analysis Findings", content="No images in generated example", emoji="🔬")
 
     yield (
         format_transcript_highlighted(analysis, transcript_turns),
+        recs_html,
         recs_text,
-        eval_df,
-        gen_comment,
-        complaints,
-        diagnosis,
-        meds_text,
-        "No images in generated example",
+        eval_html,
+        gen_comment_html,
+        complaints_html,
+        diagnosis_html,
+        meds_html,
+        image_findings_html,
+        format_status("Analysis complete!", True),
+        gr.update(interactive=True),
+        gr.update(interactive=True),
+        gr.update(interactive=True),
     )
 
 
@@ -235,6 +511,7 @@ def create_app():
                             type="filepath",
                         )
                         analyze_btn = gr.Button("Start Consultation", variant="primary", size="lg")
+                        analyze_status = gr.HTML(value="", visible=True)
                     
                     with gr.Tab("🎭 Generate Example"):
                         diagnosis_input = gr.Textbox(
@@ -251,6 +528,7 @@ def create_app():
                             info="0=Novice, 5=Competent (2 years exp), 10=Expert Master",
                         )
                         generate_btn = gr.Button("Generate Example and Analyze", variant="secondary", size="lg")
+                        generate_status = gr.HTML(value="", visible=True)
 
             with gr.Column(scale=1):
                 gr.Markdown("### 🗣️ Transcription")
@@ -258,27 +536,34 @@ def create_app():
                     value='<div style="color: #6b7280; font-style: italic;">Transcription text with key highlights will appear here...</div>'
                 )
 
+        # Separator
+        gr.Markdown("---")
+        
         # Middle Block: Structured Data
         gr.Markdown("### 📝 Consultation Data")
         with gr.Row():
             with gr.Column():
-                complaints_output = gr.Textbox(label="Complaints", lines=5, interactive=False)
+                complaints_output = gr.HTML(value="<div style='color: #6b7280; font-style: italic;'>Complaints will appear here...</div>")
             with gr.Column():
-                diagnosis_output = gr.Textbox(label="Diagnosis", lines=2, interactive=False)
+                diagnosis_output = gr.HTML(value="<div style='color: #6b7280; font-style: italic;'>Diagnosis will appear here...</div>")
             with gr.Column():
-                meds_output = gr.Textbox(label="Medications", lines=5, interactive=False)
+                meds_output = gr.HTML(value="<div style='color: #6b7280; font-style: italic;'>Medications will appear here...</div>")
         
         with gr.Row():
             with gr.Column():
-                image_findings_output = gr.Textbox(label="🔬 Image Analysis Findings", lines=4, interactive=False)
+                image_findings_output = gr.HTML(value="<div style='color: #6b7280; font-style: italic;'>Image findings will appear here...</div>")
 
+        # Separator
+        gr.Markdown("---")
+        
         # Bottom Block: Recommendations and Evaluation
         with gr.Row():
             with gr.Column():
                 gr.Markdown("### 💊 Clinical Recommendations")
-                recs_output = gr.Textbox(
-                    label="Recommendations for Doctor", lines=10, interactive=False
+                recs_output = gr.HTML(
+                    value="<div style='color: #6b7280; font-style: italic;'>Recommendations will appear here...</div>"
                 )
+                recs_text_hidden = gr.Textbox(visible=False)
                 play_recs_btn = gr.Button(
                     "🔊 Play Recommendations Audio", variant="secondary", size="sm"
                 )
@@ -288,18 +573,21 @@ def create_app():
 
             with gr.Column():
                 gr.Markdown("### 📋 Communication Evaluation")
-                eval_table = gr.Dataframe(
-                    label="Doctor Checklist", headers=["Criterion", "Score", "Comment"]
+                eval_table = gr.HTML(
+                    value="<div style='color: #6b7280; font-style: italic;'>Evaluation results will appear here...</div>"
                 )
 
-        # Final Comment
+        # Separator
         gr.Markdown("---")
-        general_comment = gr.Textbox(label="General Conclusion", lines=3, interactive=False)
+        
+        # Final Comment
+        general_comment = gr.HTML(value="<div style='color: #6b7280; font-style: italic;'>General conclusion will appear here...</div>")
 
         # Actions
         outputs_list = [
             transcript_output,
             recs_output,
+            recs_text_hidden,
             eval_table,
             general_comment,
             complaints_output,
@@ -311,18 +599,18 @@ def create_app():
         analyze_btn.click(
             fn=analyze_visit,
             inputs=[audio_input, images_input],
-            outputs=outputs_list,
+            outputs=outputs_list + [analyze_status, audio_input, images_input, analyze_btn],
         )
 
         generate_btn.click(
             fn=generate_and_analyze,
             inputs=[diagnosis_input, doctor_skill_input],
-            outputs=outputs_list,
+            outputs=outputs_list + [generate_status, diagnosis_input, doctor_skill_input, generate_btn],
         )
 
         play_recs_btn.click(
             fn=play_recommendations,
-            inputs=[recs_output],
+            inputs=[recs_text_hidden],
             outputs=[recs_audio_output],
         )
 
