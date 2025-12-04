@@ -22,7 +22,12 @@ from config.settings import config
 
 
 class MockLLM(LLMProvider):
-    async def analyze(self, dialogue: list[DialogueTurn], system_prompt: str, images: list[ImageAttachment] | None = None) -> AnalysisResult:
+    async def analyze(
+        self,
+        dialogue: list[DialogueTurn],
+        system_prompt: str,
+        images: list[ImageAttachment] | None = None,
+    ) -> AnalysisResult:
         logger.info("MockLLM: Analyzing dialogue...")
         await asyncio.sleep(2)
         return AnalysisResult(
@@ -83,12 +88,18 @@ class MockLLM(LLMProvider):
             ),
         )
 
-    async def analyze_raw(self, text: str, system_prompt: str, images: list[ImageAttachment] | None = None) -> AnalysisResult:
+    async def analyze_raw(
+        self, text: str, system_prompt: str, images: list[ImageAttachment] | None = None
+    ) -> AnalysisResult:
         logger.info("MockLLM: Analyzing raw text...")
         return await self.analyze([], system_prompt, images)
 
-    async def generate_dialogue(self, system_prompt: str, diagnosis: str | None = None) -> GeneratedDialogue:
-        logger.info(f"MockLLM: Generating dialogue{f' for diagnosis: {diagnosis}' if diagnosis else ''}...")
+    async def generate_dialogue(
+        self, system_prompt: str, diagnosis: str | None = None
+    ) -> GeneratedDialogue:
+        logger.info(
+            f"MockLLM: Generating dialogue{f' for diagnosis: {diagnosis}' if diagnosis else ''}..."
+        )
         await asyncio.sleep(1)
         return GeneratedDialogue(
             dialogue=[
@@ -131,55 +142,66 @@ class OpenAILLM(LLMProvider):
         }
         return mime_types.get(suffix, "image/jpeg")
 
-    def _build_messages_with_images(self, text_content: str, system_prompt: str, images: list[ImageAttachment] | None = None) -> list[dict]:
+    def _build_messages_with_images(
+        self, text_content: str, system_prompt: str, images: list[ImageAttachment] | None = None
+    ) -> list[dict]:
         messages = [{"role": "system", "content": system_prompt}]
-        
+
         if not images:
             messages.append({"role": "user", "content": text_content})
         else:
             content_parts = [{"type": "text", "text": text_content}]
-            
+
             for img in images:
                 try:
                     base64_image = self._encode_image(img.file_path)
                     mime_type = self._get_image_mime_type(img.file_path)
-                    
+
                     image_description = ""
                     if img.description:
                         image_description = f"\n\nImage description: {img.description}"
                     if img.image_type:
                         image_description += f"\nImage type: {img.image_type}"
-                    
-                    content_parts.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{base64_image}",
-                            "detail": "high"
+
+                    content_parts.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{base64_image}",
+                                "detail": "high",
+                            },
                         }
-                    })
-                    
+                    )
+
                     if image_description:
                         content_parts.append({"type": "text", "text": image_description})
-                        
+
                     logger.info(f"Added image to request: {img.file_path}")
                 except Exception as e:
                     logger.error(f"Failed to encode image {img.file_path}: {e}")
-            
+
             messages.append({"role": "user", "content": content_parts})
-        
+
         return messages
 
-    async def analyze(self, dialogue: list[DialogueTurn], system_prompt: str, images: list[ImageAttachment] | None = None) -> AnalysisResult:
+    async def analyze(
+        self,
+        dialogue: list[DialogueTurn],
+        system_prompt: str,
+        images: list[ImageAttachment] | None = None,
+    ) -> AnalysisResult:
         dialogue_text = "\n".join([f"{turn.speaker}: {turn.text}" for turn in dialogue])
-        
+
         if images:
-            logger.info(f"OpenAILLM: Sending request to {config.LLM_MODEL} with {len(images)} image(s)")
+            logger.info(
+                f"OpenAILLM: Sending request to {config.LLM_MODEL} with {len(images)} image(s)"
+            )
             dialogue_text = f"Consultation dialogue:\n{dialogue_text}\n\nPlease analyze the dialogue along with the provided medical images."
         else:
             logger.info(f"OpenAILLM: Sending request to {config.LLM_MODEL}")
-        
+
         messages = self._build_messages_with_images(dialogue_text, system_prompt, images)
-        
+
         response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=messages,
@@ -194,15 +216,19 @@ class OpenAILLM(LLMProvider):
         logger.info("OpenAILLM: Received valid response")
         return parsed_result
 
-    async def analyze_raw(self, text: str, system_prompt: str, images: list[ImageAttachment] | None = None) -> AnalysisResult:
+    async def analyze_raw(
+        self, text: str, system_prompt: str, images: list[ImageAttachment] | None = None
+    ) -> AnalysisResult:
         if images:
-            logger.info(f"OpenAILLM: Sending raw request to {config.LLM_MODEL} with {len(images)} image(s)")
+            logger.info(
+                f"OpenAILLM: Sending raw request to {config.LLM_MODEL} with {len(images)} image(s)"
+            )
             text = f"{text}\n\nPlease analyze the text along with the provided medical images."
         else:
             logger.info(f"OpenAILLM: Sending raw request to {config.LLM_MODEL}")
-        
+
         messages = self._build_messages_with_images(text, system_prompt, images)
-        
+
         response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=messages,
@@ -217,8 +243,12 @@ class OpenAILLM(LLMProvider):
         logger.info("OpenAILLM: Received valid response")
         return parsed_result
 
-    async def generate_dialogue(self, system_prompt: str, diagnosis: str | None = None) -> GeneratedDialogue:
-        logger.info(f"OpenAILLM: Generating dialogue with {config.LLM_MODEL}{f' for diagnosis: {diagnosis}' if diagnosis else ''}")
+    async def generate_dialogue(
+        self, system_prompt: str, diagnosis: str | None = None
+    ) -> GeneratedDialogue:
+        logger.info(
+            f"OpenAILLM: Generating dialogue with {config.LLM_MODEL}{f' for diagnosis: {diagnosis}' if diagnosis else ''}"
+        )
         response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=[

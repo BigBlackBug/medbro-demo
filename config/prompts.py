@@ -91,8 +91,10 @@ def get_dialogue_generation_prompt(diagnosis: str | None = None, doctor_skill: i
     if diagnosis:
         diagnosis_instruction = f"- Be about the following diagnosis: {diagnosis}. The patient should present symptoms related to this condition."
     else:
-        diagnosis_instruction = "- Be about a common medical case (e.g., flu, gastritis, headache, back pain)."
-    
+        diagnosis_instruction = (
+            "- Be about a common medical case (e.g., flu, gastritis, headache, back pain)."
+        )
+
     if doctor_skill <= 2:
         doctor_skill_instruction = """
 Doctor's skill level: NOVICE (0-2/10)
@@ -153,8 +155,8 @@ The doctor should demonstrate exceptional medical expertise:
 - Demonstrate mastery of differential diagnosis and treatment options
 - Educate patient clearly about condition and treatment plan
 """
-    
+
     return SYSTEM_PROMPT_GENERATE_DIALOGUE.format(
         diagnosis_instruction=diagnosis_instruction,
-        doctor_skill_instruction=doctor_skill_instruction
+        doctor_skill_instruction=doctor_skill_instruction,
     )

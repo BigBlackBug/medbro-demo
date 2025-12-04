@@ -28,6 +28,7 @@ class OpenAITTS(TTSProvider):
     Pronunciation: Precise and articulate, with crisp consonants and accurate medical terminology.
     Tempo: Fast and purposeful, moving efficiently through the information while maintaining clarity.
     """
+
     def __init__(self):
         self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
 
@@ -35,8 +36,7 @@ class OpenAITTS(TTSProvider):
         target_voice = voice or "alloy"
         logger.info(f"OpenAITTS: Synthesizing speech to {output_path} with voice {target_voice}")
         async with self.client.audio.speech.with_streaming_response.create(
-            model=config.TTS_MODEL, voice=target_voice, input=text,
-            instructions = self.instructions
+            model=config.TTS_MODEL, voice=target_voice, input=text, instructions=self.instructions
         ) as response:
             await response.stream_to_file(output_path)
         return output_path

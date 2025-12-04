@@ -28,9 +28,9 @@ OUTPUT_DIR = config.DATA_DIR
 
 def sanitize_diagnosis_for_filename(diagnosis: str) -> str:
     slug = diagnosis.lower()
-    slug = re.sub(r'[^\w\s-]', '', slug)
-    slug = re.sub(r'[\s_]+', '_', slug)
-    slug = slug.strip('_')
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[\s_]+", "_", slug)
+    slug = slug.strip("_")
     return slug
 
 
@@ -61,12 +61,16 @@ async def generate_dialogue_audio(diagnosis: str | None = None, doctor_skill: in
     output_file = OUTPUT_DIR / f"{file_index:04d}_dialogue_{diagnosis_slug}_skill{doctor_skill}.mp3"
 
     if diagnosis:
-        print(f"Generating new dialogue for diagnosis: {diagnosis} (doctor skill: {doctor_skill}/10)...")
+        print(
+            f"Generating new dialogue for diagnosis: {diagnosis} (doctor skill: {doctor_skill}/10)..."
+        )
     else:
         print(f"Generating new dialogue (doctor skill: {doctor_skill}/10)...")
-    
+
     system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
-    generated_dialogue = await llm.generate_dialogue(system_prompt=system_prompt, diagnosis=diagnosis)
+    generated_dialogue = await llm.generate_dialogue(
+        system_prompt=system_prompt, diagnosis=diagnosis
+    )
     dialogue_script = generated_dialogue.dialogue
 
     print(f"Generating dialogue audio to {output_file}...")
@@ -132,5 +136,5 @@ if __name__ == "__main__":
         help="Doctor's skill level from 0 (complete novice) to 10 (expert master). Default: 5 (competent with 2 years experience)",
     )
     args = parser.parse_args()
-    
+
     asyncio.run(generate_dialogue_audio(diagnosis=args.diagnosis, doctor_skill=args.doctor_skill))
