@@ -4,6 +4,7 @@ from app.core.models import AnalysisResult, DialogueTurn, ImageAttachment
 from app.services.session import get_session_service
 from config.logger import logger
 from config.prompts import get_analysis_prompt, get_dialogue_generation_prompt
+from config.settings import config
 
 service = get_session_service()
 
@@ -266,6 +267,7 @@ async def analyze_visit(audio_path: str, images: list | None):
             gr.update(interactive=True),
             gr.update(interactive=True),
             gr.update(interactive=True),
+            gr.update(interactive=False),
         )
         return
 
@@ -281,6 +283,7 @@ async def analyze_visit(audio_path: str, images: list | None):
         loading_html,
         loading_html,
         format_status("Starting audio processing...", False),
+        gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -313,6 +316,7 @@ async def analyze_visit(audio_path: str, images: list | None):
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
+        gr.update(interactive=False),
     )
 
     system_prompt = get_analysis_prompt()
@@ -320,7 +324,7 @@ async def analyze_visit(audio_path: str, images: list | None):
     logger.info("Analysis completed")
 
     recs_html = format_recommendations_html(analysis.prescription_review.recommendations)
-    recs_text = "\n\n".join(analysis.prescription_review.recommendations) if analysis.prescription_review.recommendations else "No recommendations."
+    recs_text = "\n\n".join(analysis.prescription_review.recommendations) if analysis.prescription_review.recommendations else ""
 
     criteria_data = []
     for criterion in analysis.doctor_evaluation.criteria:
@@ -359,6 +363,7 @@ async def analyze_visit(audio_path: str, images: list | None):
         image_findings_text = "No images analyzed" if not images else "No significant findings"
     image_findings_html = format_data_card(title="Image Analysis Findings", content=image_findings_text, emoji="🔬")
 
+    has_recs = bool(recs_text and recs_text.strip())
     yield (
         format_transcript_highlighted(analysis, transcript_raw),
         recs_html,
@@ -373,6 +378,7 @@ async def analyze_visit(audio_path: str, images: list | None):
         gr.update(interactive=True),
         gr.update(interactive=True),
         gr.update(interactive=True),
+        gr.update(interactive=has_recs),
     )
 
 
@@ -395,6 +401,7 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
         loading_html,
         loading_html,
         format_status("Generating sample dialogue...", False),
+        gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -422,13 +429,14 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
+        gr.update(interactive=False),
     )
 
     system_prompt = get_analysis_prompt()
     analysis = await service.llm.analyze(dialogue=transcript_turns, system_prompt=system_prompt)
     logger.info("Analysis completed")
     recs_html = format_recommendations_html(analysis.prescription_review.recommendations)
-    recs_text = "\n\n".join(analysis.prescription_review.recommendations) if analysis.prescription_review.recommendations else "No recommendations."
+    recs_text = "\n\n".join(analysis.prescription_review.recommendations) if analysis.prescription_review.recommendations else ""
 
     criteria_data = []
     for criterion in analysis.doctor_evaluation.criteria:
@@ -464,6 +472,7 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
     
     image_findings_html = format_data_card(title="Image Analysis Findings", content="No images in generated example", emoji="🔬")
 
+    has_recs = bool(recs_text and recs_text.strip())
     yield (
         format_transcript_highlighted(analysis, transcript_turns),
         recs_html,
@@ -478,15 +487,23 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
         gr.update(interactive=True),
         gr.update(interactive=True),
         gr.update(interactive=True),
+        gr.update(interactive=has_recs),
     )
 
 
 async def play_recommendations(recommendations_text: str):
-    if not recommendations_text or recommendations_text == "No recommendations.":
-        return None
-
-    audio_path = await service.text_to_speech(text=recommendations_text, voice="alloy")
-    return audio_path
+    if not recommendations_text or not recommendations_text.strip():
+        logger.warning("No recommendations to play")
+        return None, gr.update(interactive=True, value="🔊 Play Recommendations Audio")
+    
+    try:
+        logger.info("Generating recommendations audio...")
+        audio_path = await service.text_to_speech(text=recommendations_text, voice=config.DEFAULT_TTS_VOICE)
+        logger.info(f"Recommendations audio ready: {audio_path}")
+        return audio_path, gr.update(interactive=True, value="🔊 Play Recommendations Audio")
+    except Exception as e:
+        logger.error(f"Error generating recommendations audio: {e}")
+        return None, gr.update(interactive=True, value="🔊 Play Recommendations Audio")
 
 
 def create_app():
@@ -563,7 +580,7 @@ def create_app():
                 recs_output = gr.HTML(
                     value="<div style='color: #6b7280; font-style: italic;'>Recommendations will appear here...</div>"
                 )
-                recs_text_hidden = gr.Textbox(visible=False)
+                recs_text_state = gr.State(value="")
                 play_recs_btn = gr.Button(
                     "🔊 Play Recommendations Audio", variant="secondary", size="sm"
                 )
@@ -587,7 +604,7 @@ def create_app():
         outputs_list = [
             transcript_output,
             recs_output,
-            recs_text_hidden,
+            recs_text_state,
             eval_table,
             general_comment,
             complaints_output,
@@ -599,19 +616,20 @@ def create_app():
         analyze_btn.click(
             fn=analyze_visit,
             inputs=[audio_input, images_input],
-            outputs=outputs_list + [analyze_status, audio_input, images_input, analyze_btn],
+            outputs=outputs_list + [analyze_status, audio_input, images_input, analyze_btn, play_recs_btn],
         )
 
         generate_btn.click(
             fn=generate_and_analyze,
             inputs=[diagnosis_input, doctor_skill_input],
-            outputs=outputs_list + [generate_status, diagnosis_input, doctor_skill_input, generate_btn],
+            outputs=outputs_list + [generate_status, diagnosis_input, doctor_skill_input, generate_btn, play_recs_btn],
         )
 
         play_recs_btn.click(
             fn=play_recommendations,
-            inputs=[recs_text_hidden],
-            outputs=[recs_audio_output],
+            inputs=[recs_text_state],
+            outputs=[recs_audio_output, play_recs_btn],
+            show_progress="full",
         )
 
     return app

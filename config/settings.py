@@ -37,6 +37,7 @@ class AppConfig(BaseSettings):
     STT_MODEL: str = "gpt-4o-transcribe"
     STT_DIARIZATION_MODEL: str = "gpt-4o-transcribe-diarize"
     TTS_MODEL: str = "tts-1-hd"
+    DEFAULT_TTS_VOICE: str = "sage"
 
     # Mocking
     USE_MOCK_SERVICES: bool = False
