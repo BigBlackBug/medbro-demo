@@ -3,8 +3,8 @@ import pandas as pd
 
 from app.core.models import AnalysisResult, DialogueTurn
 from app.services.session import get_session_service
-from config.prompts import get_analysis_prompt, SYSTEM_PROMPT_GENERATE_DIALOGUE
 from config.logger import logger
+from config.prompts import SYSTEM_PROMPT_GENERATE_DIALOGUE, get_analysis_prompt
 
 service = get_session_service()
 
@@ -28,7 +28,9 @@ def format_transcript_html(content: str) -> str:
 
 
 def format_transcript_plain(transcript: list[DialogueTurn]) -> str:
-    content = "<br>".join([f'<b style="color: #000000;">{t.speaker}:</b> {t.text}' for t in transcript])
+    content = "<br>".join(
+        [f'<b style="color: #000000;">{t.speaker}:</b> {t.text}' for t in transcript]
+    )
     return format_transcript_html(content)
 
 
@@ -48,11 +50,11 @@ async def analyze_visit(audio_path: str, progress=gr.Progress()):
 
     progress(0, desc="Starting audio processing...")
     logger.info(f"Starting audio processing for: {audio_path}")
-    
+
     progress(0.2, desc="Transcribing audio...")
     transcript_raw = await service.stt.transcribe(audio_path)
     logger.info(f"Transcription completed: {len(transcript_raw)} turns")
-    
+
     progress(0.5, desc="Transcription complete")
     yield (
         format_transcript_plain(transcript_raw),
@@ -61,16 +63,16 @@ async def analyze_visit(audio_path: str, progress=gr.Progress()):
         "⏳ Loading...",
         "⏳ Loading...",
         "⏳ Loading...",
-        "⏳ Loading..."
+        "⏳ Loading...",
     )
-    
+
     progress(0.6, desc="Analyzing consultation...")
     system_prompt = get_analysis_prompt()
     analysis = await service.llm.analyze(transcript_raw, system_prompt)
     logger.info("Analysis completed")
-    
+
     progress(0.9, desc="Formatting results...")
-    
+
     recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
     if not recs_text:
         recs_text = "No recommendations."
@@ -99,7 +101,7 @@ async def analyze_visit(audio_path: str, progress=gr.Progress()):
             med_str += f", {m.frequency}"
         medications.append(med_str)
     meds_text = "\n".join(medications) if medications else "No prescriptions"
-    
+
     yield (
         format_transcript_highlighted(analysis, transcript_raw),
         recs_text,
@@ -107,24 +109,22 @@ async def analyze_visit(audio_path: str, progress=gr.Progress()):
         gen_comment,
         complaints,
         diagnosis,
-        meds_text
+        meds_text,
     )
 
 
 async def generate_and_analyze(progress=gr.Progress()):
     progress(0, desc="Generating sample dialogue...")
     logger.info("Generating sample dialogue...")
-    
+
     progress(0.2, desc="Creating consultation scenario...")
-    generated_dialogue = await service.llm.generate_dialogue(
-        SYSTEM_PROMPT_GENERATE_DIALOGUE
-    )
-    
+    generated_dialogue = await service.llm.generate_dialogue(SYSTEM_PROMPT_GENERATE_DIALOGUE)
+
     transcript_turns = [
         DialogueTurn(speaker=turn.role, text=turn.text) for turn in generated_dialogue.dialogue
     ]
     logger.info(f"Dialogue generation completed: {len(transcript_turns)} turns")
-    
+
     progress(0.5, desc="Dialogue generated")
     yield (
         format_transcript_plain(transcript_turns),
@@ -133,14 +133,14 @@ async def generate_and_analyze(progress=gr.Progress()):
         "⏳ Loading...",
         "⏳ Loading...",
         "⏳ Loading...",
-        "⏳ Loading..."
+        "⏳ Loading...",
     )
-    
+
     progress(0.6, desc="Analyzing consultation...")
     system_prompt = get_analysis_prompt()
     analysis = await service.llm.analyze(transcript_turns, system_prompt)
     logger.info("Analysis completed")
-    
+
     progress(0.9, desc="Formatting results...")
     recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
     if not recs_text:
@@ -170,7 +170,7 @@ async def generate_and_analyze(progress=gr.Progress()):
             med_str += f", {m.frequency}"
         medications.append(med_str)
     meds_text = "\n".join(medications) if medications else "No prescriptions"
-    
+
     yield (
         format_transcript_highlighted(analysis, transcript_turns),
         recs_text,
@@ -178,14 +178,14 @@ async def generate_and_analyze(progress=gr.Progress()):
         gen_comment,
         complaints,
         diagnosis,
-        meds_text
+        meds_text,
     )
 
 
 async def play_recommendations(recommendations_text: str):
     if not recommendations_text or recommendations_text == "No recommendations.":
         return None
-    
+
     audio_path = await service.text_to_speech(text=recommendations_text, voice="alloy")
     return audio_path
 
@@ -230,12 +230,11 @@ def create_app():
                 recs_output = gr.Textbox(
                     label="Recommendations for Doctor", lines=10, interactive=False
                 )
-                play_recs_btn = gr.Button("🔊 Play Recommendations Audio", variant="secondary", size="sm")
+                play_recs_btn = gr.Button(
+                    "🔊 Play Recommendations Audio", variant="secondary", size="sm"
+                )
                 recs_audio_output = gr.Audio(
-                    label="Recommendations Audio", 
-                    visible=True, 
-                    interactive=False,
-                    autoplay=True
+                    label="Recommendations Audio", visible=True, interactive=False, autoplay=True
                 )
 
             with gr.Column():
