@@ -23,7 +23,7 @@ if not API_KEY:
     exit(1)
 
 
-OUTPUT_DIR = config.TEMP_DIR
+OUTPUT_DIR = config.DATA_DIR
 
 
 def sanitize_diagnosis_for_filename(diagnosis: str) -> str:

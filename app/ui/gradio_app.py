@@ -1,7 +1,7 @@
 import gradio as gr
 import pandas as pd
 
-from app.core.models import AnalysisResult, DialogueTurn
+from app.core.models import AnalysisResult, DialogueTurn, ImageAttachment
 from app.services.session import get_session_service
 from config.logger import logger
 from config.prompts import SYSTEM_PROMPT_GENERATE_DIALOGUE, get_analysis_prompt
@@ -43,9 +43,9 @@ def format_transcript_highlighted(analysis: AnalysisResult, transcript: list[Dia
     return format_transcript_plain(transcript)
 
 
-async def analyze_visit(audio_path: str, progress=gr.Progress()):
+async def analyze_visit(audio_path: str, images: list | None, progress=gr.Progress()):
     if not audio_path:
-        yield "No audio provided", "", pd.DataFrame(), "", "", "", ""
+        yield "No audio provided", "", pd.DataFrame(), "", "", "", "", ""
         return
 
     progress(0, desc="Starting audio processing...")
@@ -54,6 +54,16 @@ async def analyze_visit(audio_path: str, progress=gr.Progress()):
     progress(0.2, desc="Transcribing audio...")
     transcript_raw = await service.stt.transcribe(audio_path)
     logger.info(f"Transcription completed: {len(transcript_raw)} turns")
+    
+    image_attachments: list[ImageAttachment] | None = None
+    if images:
+        image_attachments = []
+        for img_path in images:
+            if isinstance(img_path, str):
+                image_attachments.append(ImageAttachment(file_path=img_path))
+            elif hasattr(img_path, 'name'):
+                image_attachments.append(ImageAttachment(file_path=img_path.name))
+        logger.info(f"Processing {len(image_attachments)} image(s)")
 
     progress(0.5, desc="Transcription complete")
     yield (
@@ -64,11 +74,12 @@ async def analyze_visit(audio_path: str, progress=gr.Progress()):
         "⏳ Loading...",
         "⏳ Loading...",
         "⏳ Loading...",
+        "⏳ Loading...",
     )
 
     progress(0.6, desc="Analyzing consultation...")
     system_prompt = get_analysis_prompt()
-    analysis = await service.llm.analyze(transcript_raw, system_prompt)
+    analysis = await service.llm.analyze(dialogue=transcript_raw, system_prompt=system_prompt, images=image_attachments)
     logger.info("Analysis completed")
 
     progress(0.9, desc="Formatting results...")
@@ -101,6 +112,10 @@ async def analyze_visit(audio_path: str, progress=gr.Progress()):
             med_str += f", {m.frequency}"
         medications.append(med_str)
     meds_text = "\n".join(medications) if medications else "No prescriptions"
+    
+    image_findings_text = "\n".join([f"- {f}" for f in analysis.structured_data.image_findings])
+    if not image_findings_text:
+        image_findings_text = "No images analyzed" if not images else "No significant findings"
 
     yield (
         format_transcript_highlighted(analysis, transcript_raw),
@@ -110,6 +125,7 @@ async def analyze_visit(audio_path: str, progress=gr.Progress()):
         complaints,
         diagnosis,
         meds_text,
+        image_findings_text,
     )
 
 
@@ -134,11 +150,12 @@ async def generate_and_analyze(progress=gr.Progress()):
         "⏳ Loading...",
         "⏳ Loading...",
         "⏳ Loading...",
+        "⏳ Loading...",
     )
 
     progress(0.6, desc="Analyzing consultation...")
     system_prompt = get_analysis_prompt()
-    analysis = await service.llm.analyze(transcript_turns, system_prompt)
+    analysis = await service.llm.analyze(dialogue=transcript_turns, system_prompt=system_prompt)
     logger.info("Analysis completed")
 
     progress(0.9, desc="Formatting results...")
@@ -179,6 +196,7 @@ async def generate_and_analyze(progress=gr.Progress()):
         complaints,
         diagnosis,
         meds_text,
+        "No images in generated example",
     )
 
 
@@ -195,13 +213,19 @@ def create_app():
         gr.HTML("<style>footer {visibility: hidden}</style>")
         gr.Markdown("## 🏥 Medical AI Assistant Demo")
 
-        # Top Block: Audio and Transcription
+        # Top Block: Audio, Images and Transcription
         with gr.Row():
             with gr.Column(scale=1):
                 audio_input = gr.Audio(
                     sources=["microphone", "upload"],
                     type="filepath",
                     label="Consultation Recording / Upload Audio",
+                )
+                images_input = gr.File(
+                    file_count="multiple",
+                    file_types=["image"],
+                    label="📷 Medical Images (X-rays, Lab Reports, Prescriptions)",
+                    type="filepath",
                 )
                 with gr.Row():
                     analyze_btn = gr.Button("Start Consultation (Analyze)", variant="primary")
@@ -222,6 +246,10 @@ def create_app():
                 diagnosis_output = gr.Textbox(label="Diagnosis", lines=2, interactive=False)
             with gr.Column():
                 meds_output = gr.Textbox(label="Prescriptions", lines=5, interactive=False)
+        
+        with gr.Row():
+            with gr.Column():
+                image_findings_output = gr.Textbox(label="🔬 Image Analysis Findings", lines=4, interactive=False)
 
         # Bottom Block: Recommendations and Evaluation
         with gr.Row():
@@ -256,11 +284,12 @@ def create_app():
             complaints_output,
             diagnosis_output,
             meds_output,
+            image_findings_output,
         ]
 
         analyze_btn.click(
             fn=analyze_visit,
-            inputs=[audio_input],
+            inputs=[audio_input, images_input],
             outputs=outputs_list,
         )
 
