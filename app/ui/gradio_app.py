@@ -41,29 +41,35 @@ def format_transcript_highlighted(analysis: AnalysisResult, transcript: list[Dia
     return format_transcript_plain(transcript)
 
 
-async def analyze_visit(audio_path: str):
+async def analyze_visit(audio_path: str, progress=gr.Progress()):
     if not audio_path:
         yield "No audio provided", "", pd.DataFrame(), "", "", "", ""
         return
 
+    progress(0, desc="Starting audio processing...")
     logger.info(f"Starting audio processing for: {audio_path}")
     
+    progress(0.2, desc="Transcribing audio...")
     transcript_raw = await service.stt.transcribe(audio_path)
     logger.info(f"Transcription completed: {len(transcript_raw)} turns")
     
+    progress(0.5, desc="Transcription complete")
     yield (
         format_transcript_plain(transcript_raw),
         "⏳ Analyzing...",
-        gr.skip(),
-        gr.skip(),
-        gr.skip(),
-        gr.skip(),
-        gr.skip()
+        pd.DataFrame({"": ["⏳ Loading..."]}),
+        "⏳ Loading...",
+        "⏳ Loading...",
+        "⏳ Loading...",
+        "⏳ Loading..."
     )
     
+    progress(0.6, desc="Analyzing consultation...")
     system_prompt = get_analysis_prompt()
     analysis = await service.llm.analyze(transcript_raw, system_prompt)
     logger.info("Analysis completed")
+    
+    progress(0.9, desc="Formatting results...")
     
     recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
     if not recs_text:
@@ -105,9 +111,11 @@ async def analyze_visit(audio_path: str):
     )
 
 
-async def generate_and_analyze():
+async def generate_and_analyze(progress=gr.Progress()):
+    progress(0, desc="Generating sample dialogue...")
     logger.info("Generating sample dialogue...")
     
+    progress(0.2, desc="Creating consultation scenario...")
     generated_dialogue = await service.llm.generate_dialogue(
         SYSTEM_PROMPT_GENERATE_DIALOGUE
     )
@@ -117,20 +125,23 @@ async def generate_and_analyze():
     ]
     logger.info(f"Dialogue generation completed: {len(transcript_turns)} turns")
     
+    progress(0.5, desc="Dialogue generated")
     yield (
         format_transcript_plain(transcript_turns),
         "⏳ Analyzing...",
-        gr.skip(),
-        gr.skip(),
-        gr.skip(),
-        gr.skip(),
-        gr.skip()
+        pd.DataFrame({"": ["⏳ Loading..."]}),
+        "⏳ Loading...",
+        "⏳ Loading...",
+        "⏳ Loading...",
+        "⏳ Loading..."
     )
     
+    progress(0.6, desc="Analyzing consultation...")
     system_prompt = get_analysis_prompt()
     analysis = await service.llm.analyze(transcript_turns, system_prompt)
     logger.info("Analysis completed")
     
+    progress(0.9, desc="Formatting results...")
     recs_text = "\n".join([f"- {r}" for r in analysis.prescription_review.recommendations])
     if not recs_text:
         recs_text = "No recommendations."
