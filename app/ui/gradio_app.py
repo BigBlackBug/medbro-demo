@@ -86,6 +86,14 @@ async def generate_and_analyze():
     return format_results(transcript, analysis)
 
 
+async def play_recommendations(recommendations_text: str):
+    if not recommendations_text or recommendations_text == "No recommendations.":
+        return None
+    
+    audio_path = await service.text_to_speech(text=recommendations_text, voice="alloy")
+    return audio_path
+
+
 def create_app():
     with gr.Blocks(title="Medical AI Assistant") as app:
         gr.HTML("<style>footer {visibility: hidden}</style>")
@@ -126,6 +134,13 @@ def create_app():
                 recs_output = gr.Textbox(
                     label="Recommendations for Doctor", lines=10, interactive=False
                 )
+                play_recs_btn = gr.Button("🔊 Play Recommendations Audio", variant="secondary", size="sm")
+                recs_audio_output = gr.Audio(
+                    label="Recommendations Audio", 
+                    visible=True, 
+                    interactive=False,
+                    autoplay=True
+                )
 
             with gr.Column():
                 gr.Markdown("### 📋 Communication Evaluation")
@@ -158,6 +173,12 @@ def create_app():
             fn=generate_and_analyze,
             inputs=[],
             outputs=outputs_list,
+        )
+
+        play_recs_btn.click(
+            fn=play_recommendations,
+            inputs=[recs_output],
+            outputs=[recs_audio_output],
         )
 
     return app

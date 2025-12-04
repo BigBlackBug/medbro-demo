@@ -44,6 +44,15 @@ class MedicalSessionService:
         logger.info(f"Audio generated at: {audio_file}")
         return audio_file
 
+    async def text_to_speech(self, text: str, voice: str | None = None) -> str:
+        logger.info(f"Generating speech for text (length: {len(text)})...")
+        filename = f"speech_{uuid.uuid4().hex[:8]}.mp3"
+        output_path = config.TEMP_DIR / filename
+
+        audio_file = await self.tts.speak(text=text, output_path=str(output_path), voice=voice)
+        logger.info(f"Audio generated at: {audio_file}")
+        return audio_file
+
     async def generate_and_analyze_sample(self) -> tuple[str | list[DialogueTurn], AnalysisResult]:
         logger.info("Generating sample dialogue...")
 
