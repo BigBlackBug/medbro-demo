@@ -43,6 +43,7 @@ class AppConfig(BaseSettings):
 
     # Application Paths
     TEMP_DIR: Path = BASE_DIR / "_temp"
+    DATA_DIR: Path = BASE_DIR / "_data"
 
     # Criteria (Doctor Evaluation)
     EVALUATION_CRITERIA: dict[str, str] = Field(default_factory=load_criteria_from_yaml)
@@ -52,3 +53,4 @@ config = AppConfig()
 
 # Ensure temp dir exists
 os.makedirs(config.TEMP_DIR, exist_ok=True)
+os.makedirs(config.DATA_DIR, exist_ok=True)

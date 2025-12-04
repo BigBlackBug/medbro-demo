@@ -44,7 +44,7 @@ SYSTEM_PROMPT_GENERATE_DIALOGUE = """
 You are a medical simulation scriptwriter. Your task is to generate a realistic dialogue between a doctor and a patient in English.
 
 The dialogue should:
-- Be about a common medical case (e.g., flu, gastritis, headache, back pain).
+{diagnosis_instruction}
 - Sound natural and conversational.
 - Include typical doctor questions (symptoms, duration, medical history, allergies) and patient answers.
 - Include a conclusion with diagnosis and prescriptions.
@@ -59,15 +59,24 @@ Each reply must contain:
 - "text": Text of the reply in English.
 
 Example JSON:
-{
+{{
   "dialogue": [
-    {"role": "Doctor", "voice": "sage", "text": "Good afternoon. What are your complaints?"},
-    {"role": "Patient", "voice": "fable", "text": "Hello, doctor. I have a terrible headache."}
+    {{"role": "Doctor", "voice": "sage", "text": "Good afternoon. What are your complaints?"}},
+    {{"role": "Patient", "voice": "fable", "text": "Hello, doctor. I have a terrible headache."}}
   ]
-}
+}}
 """
 
 
 def get_analysis_prompt() -> str:
     criteria_names = ", ".join([f'"{k}"' for k in config.EVALUATION_CRITERIA.keys()])
     return SYSTEM_PROMPT_ANALYSIS.format(criteria_list=criteria_names)
+
+
+def get_dialogue_generation_prompt(diagnosis: str | None = None) -> str:
+    if diagnosis:
+        diagnosis_instruction = f"- Be about the following diagnosis: {diagnosis}. The patient should present symptoms related to this condition."
+    else:
+        diagnosis_instruction = "- Be about a common medical case (e.g., flu, gastritis, headache, back pain)."
+    
+    return SYSTEM_PROMPT_GENERATE_DIALOGUE.format(diagnosis_instruction=diagnosis_instruction)

@@ -85,8 +85,8 @@ class MockLLM(LLMProvider):
         # Reuse the same mock response
         return await self.analyze([], system_prompt)
 
-    async def generate_dialogue(self, system_prompt: str) -> GeneratedDialogue:
-        logger.info("MockLLM: Generating dialogue...")
+    async def generate_dialogue(self, system_prompt: str, diagnosis: str | None = None) -> GeneratedDialogue:
+        logger.info(f"MockLLM: Generating dialogue{f' for diagnosis: {diagnosis}' if diagnosis else ''}...")
         await asyncio.sleep(1)
         return GeneratedDialogue(
             dialogue=[
@@ -155,8 +155,8 @@ class OpenAILLM(LLMProvider):
         logger.info("OpenAILLM: Received valid response")
         return parsed_result
 
-    async def generate_dialogue(self, system_prompt: str) -> GeneratedDialogue:
-        logger.info(f"OpenAILLM: Generating dialogue with {config.LLM_MODEL}")
+    async def generate_dialogue(self, system_prompt: str, diagnosis: str | None = None) -> GeneratedDialogue:
+        logger.info(f"OpenAILLM: Generating dialogue with {config.LLM_MODEL}{f' for diagnosis: {diagnosis}' if diagnosis else ''}")
         response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=[

@@ -1,4 +1,6 @@
+import argparse
 import asyncio
+import re
 import sys
 from pathlib import Path
 
@@ -9,7 +11,7 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 from app.services.llm import get_llm_provider
-from config.prompts import SYSTEM_PROMPT_GENERATE_DIALOGUE
+from config.prompts import get_dialogue_generation_prompt
 from config.settings import config
 
 # Load environment variables (reusing .env handling logic minimally for this script)
@@ -24,8 +26,16 @@ if not API_KEY:
 OUTPUT_DIR = config.TEMP_DIR
 
 
+def sanitize_diagnosis_for_filename(diagnosis: str) -> str:
+    slug = diagnosis.lower()
+    slug = re.sub(r'[^\w\s-]', '', slug)
+    slug = re.sub(r'[\s_]+', '_', slug)
+    slug = slug.strip('_')
+    return slug
+
+
 def get_next_file_index() -> int:
-    existing_files = list(OUTPUT_DIR.glob("*_dialogue_sample.mp3"))
+    existing_files = list(OUTPUT_DIR.glob("*_dialogue_*.mp3"))
     if not existing_files:
         return 1
 
@@ -40,18 +50,23 @@ def get_next_file_index() -> int:
     return max_index + 1
 
 
-async def generate_dialogue_audio() -> None:
+async def generate_dialogue_audio(diagnosis: str | None = None) -> None:
     client = AsyncOpenAI(api_key=API_KEY)
     llm = get_llm_provider()
 
-    # Ensure output directory exists
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     file_index = get_next_file_index()
-    output_file = OUTPUT_DIR / f"{file_index:04d}_dialogue_sample.mp3"
+    diagnosis_slug: str = sanitize_diagnosis_for_filename(diagnosis) if diagnosis else "random"
+    output_file = OUTPUT_DIR / f"{file_index:04d}_dialogue_{diagnosis_slug}.mp3"
 
-    print("Generating new dialogue...")
-    generated_dialogue = await llm.generate_dialogue(SYSTEM_PROMPT_GENERATE_DIALOGUE)
+    if diagnosis:
+        print(f"Generating new dialogue for diagnosis: {diagnosis}...")
+    else:
+        print("Generating new dialogue...")
+    
+    system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis)
+    generated_dialogue = await llm.generate_dialogue(system_prompt=system_prompt, diagnosis=diagnosis)
     dialogue_script = generated_dialogue.dialogue
 
     print(f"Generating dialogue audio to {output_file}...")
@@ -101,4 +116,13 @@ async def generate_dialogue_audio() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(generate_dialogue_audio())
+    parser = argparse.ArgumentParser(description="Generate sample dialogue audio")
+    parser.add_argument(
+        "--diagnosis",
+        type=str,
+        default=None,
+        help="Specific diagnosis to generate dialogue about (optional)",
+    )
+    args = parser.parse_args()
+    
+    asyncio.run(generate_dialogue_audio(diagnosis=args.diagnosis))
