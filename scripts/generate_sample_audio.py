@@ -50,7 +50,7 @@ def get_next_file_index() -> int:
     return max_index + 1
 
 
-async def generate_dialogue_audio(diagnosis: str | None = None, doctor_skill: int = 5) -> None:
+async def generate_dialogue_audio(diagnosis: str | None = None, doctor_skill: int = 3) -> None:
     client = AsyncOpenAI(api_key=API_KEY)
     llm = get_llm_provider()
 
@@ -62,10 +62,10 @@ async def generate_dialogue_audio(diagnosis: str | None = None, doctor_skill: in
 
     if diagnosis:
         print(
-            f"Generating new dialogue for diagnosis: {diagnosis} (doctor skill: {doctor_skill}/10)..."
+            f"Generating new dialogue for diagnosis: {diagnosis} (doctor skill: {doctor_skill}/5)..."
         )
     else:
-        print(f"Generating new dialogue (doctor skill: {doctor_skill}/10)...")
+        print(f"Generating new dialogue (doctor skill: {doctor_skill}/5)...")
 
     system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
     generated_dialogue = await llm.generate_dialogue(
@@ -130,10 +130,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--doctor-skill",
         type=int,
-        default=5,
-        choices=range(0, 11),
-        metavar="[0-10]",
-        help="Doctor's skill level from 0 (complete novice) to 10 (expert master). Default: 5 (competent with 2 years experience)",
+        default=3,
+        choices=range(1, 6),
+        metavar="[1-5]",
+        help="Doctor's skill level: 1=Novice, 2=Junior, 3=Competent, 4=Proficient, 5=Expert. Default: 3 (competent)",
     )
     args = parser.parse_args()
 

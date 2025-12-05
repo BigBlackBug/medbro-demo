@@ -134,7 +134,7 @@ def get_image_analysis_prompt() -> str:
     return SYSTEM_PROMPT_IMAGE_ANALYSIS
 
 
-def get_dialogue_generation_prompt(diagnosis: str | None = None, doctor_skill: int = 5) -> str:
+def get_dialogue_generation_prompt(diagnosis: str | None = None, doctor_skill: int = 3) -> str:
     if diagnosis:
         diagnosis_instruction = f"- Be about the following diagnosis: {diagnosis}. The patient should present symptoms related to this condition."
     else:
@@ -142,9 +142,9 @@ def get_dialogue_generation_prompt(diagnosis: str | None = None, doctor_skill: i
             "- Be about a common medical case (e.g., flu, gastritis, headache, back pain)."
         )
 
-    if doctor_skill <= 2:
+    if doctor_skill == 1:
         doctor_skill_instruction = """
-Doctor's skill level: NOVICE (0-2/10)
+Doctor's skill level: NOVICE (1/5)
 The doctor should demonstrate poor medical knowledge and make significant mistakes:
 - Ask irrelevant or poorly structured questions
 - Miss obvious symptoms or important medical history
@@ -154,9 +154,9 @@ The doctor should demonstrate poor medical knowledge and make significant mistak
 - Show poor clinical reasoning and decision-making
 - May confuse different conditions or their treatments
 """
-    elif doctor_skill <= 4:
+    elif doctor_skill == 2:
         doctor_skill_instruction = """
-Doctor's skill level: JUNIOR (3-4/10)
+Doctor's skill level: JUNIOR (2/5)
 The doctor should demonstrate basic medical knowledge but with notable gaps:
 - Ask most relevant questions but miss some important details
 - Sometimes overlook parts of medical history
@@ -165,9 +165,9 @@ The doctor should demonstrate basic medical knowledge but with notable gaps:
 - Sometimes forget to verify allergies or order necessary tests
 - Show adequate but not excellent clinical reasoning
 """
-    elif doctor_skill <= 6:
+    elif doctor_skill == 3:
         doctor_skill_instruction = """
-Doctor's skill level: COMPETENT (5-6/10)
+Doctor's skill level: COMPETENT (3/5)
 The doctor should demonstrate solid medical knowledge with minor imperfections:
 - Ask all relevant questions with good structure
 - Gather comprehensive medical history with only minor omissions
@@ -177,9 +177,9 @@ The doctor should demonstrate solid medical knowledge with minor imperfections:
 - Show good clinical reasoning with occasional small oversights
 - Equivalent to a doctor with 2 years of experience
 """
-    elif doctor_skill <= 8:
+    elif doctor_skill == 4:
         doctor_skill_instruction = """
-Doctor's skill level: PROFICIENT (7-8/10)
+Doctor's skill level: PROFICIENT (4/5)
 The doctor should demonstrate strong medical expertise:
 - Ask thorough, well-structured questions covering all aspects
 - Gather complete medical history efficiently
@@ -191,7 +191,7 @@ The doctor should demonstrate strong medical expertise:
 """
     else:
         doctor_skill_instruction = """
-Doctor's skill level: EXPERT/MASTER (9-10/10)
+Doctor's skill level: EXPERT/MASTER (5/5)
 The doctor should demonstrate exceptional medical expertise:
 - Ask highly insightful questions that explore subtle details
 - Gather comprehensive medical history with expert precision

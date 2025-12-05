@@ -614,12 +614,12 @@ def create_app() -> gr.Blocks:
                             lines=1,
                         )
                         doctor_skill_input = gr.Slider(
-                            minimum=0,
-                            maximum=10,
-                            value=5,
+                            minimum=1,
+                            maximum=5,
+                            value=3,
                             step=1,
                             label="Doctor's Skill Level",
-                            info="0=Novice, 5=Competent (2 years exp), 10=Expert Master",
+                            info="1=Novice, 2=Junior, 3=Competent, 4=Proficient, 5=Expert",
                         )
                         images_input_generate = gr.File(
                             file_count="multiple",
@@ -638,12 +638,12 @@ def create_app() -> gr.Blocks:
                             lines=1,
                         )
                         doctor_skill_audio_input = gr.Slider(
-                            minimum=0,
-                            maximum=10,
-                            value=5,
+                            minimum=1,
+                            maximum=5,
+                            value=3,
                             step=1,
                             label="Doctor's Skill Level",
-                            info="0=Novice, 5=Competent (2 years exp), 10=Expert Master",
+                            info="1=Novice, 2=Junior, 3=Competent, 4=Proficient, 5=Expert",
                         )
                         generate_audio_btn = gr.Button(
                             "Generate Dialogue Audio", variant="secondary", size="lg"
