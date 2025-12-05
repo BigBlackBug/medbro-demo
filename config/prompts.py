@@ -34,6 +34,19 @@ If an image analysis report is provided:
 - Verify if the doctor's actions align with the information in the image report (e.g. if X-ray shows fracture, did the doctor treat it?).
 - Integrate image findings into the structured data.
 
+CRITICAL: RED FLAGS PROTOCOL
+- You must actively look for "red flags" in the patient's history and complaints.
+- Examples of RED FLAGS include (but are not limited to):
+  * General: Unexplained weight loss (>5% in 6 months), night sweats, persistent fever, severe fatigue.
+  * Neurological: Sudden severe headache ("thunderclap"), focal weakness/numbness, slurred speech, loss of consciousness, new onset seizures.
+  * Cardiovascular: Chest pain (radiating to arm/jaw), shortness of breath at rest or with minimal exertion, palpitations with syncope.
+  * Respiratory: Hemoptysis (coughing up blood), severe dyspnea, stridor.
+  * Gastrointestinal: Blood in stool (melena/hematochezia), dysphagia (difficulty swallowing), persistent vomiting, severe abdominal pain.
+  * Musculoskeletal: History of significant trauma, saddle anesthesia, urinary retention/incontinence (Cauda Equina signs).
+- Verify if the doctor recognized these red flags.
+- If red flags are present, the doctor MUST propose additional examinations/tests (e.g., ECG, CT/MRI, endoscopy, specialized blood tests) to rule out serious conditions.
+- Failure to react to red flags (no tests ordered, no referral) is a CRITICAL ERROR. In such cases, the "safety" and "clinical_reasoning" criteria must be downgraded significantly (to 1 or 2).
+
 Analyze the dialogue and image report (if any) and provide the following information:
 
 1. structured_data (structured consultation data):
