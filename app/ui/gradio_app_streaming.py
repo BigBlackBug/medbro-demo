@@ -1,8 +1,9 @@
+import asyncio
 from collections.abc import AsyncIterator
 
 import gradio as gr
 
-from app.core.models import ImageAttachment
+from app.core.models import DialogueTurn, GeneratedDialogue, ImageAttachment
 from app.services.session_streaming import get_streaming_session_service
 from app.ui.gradio_app import (
     format_criteria_cards,
@@ -15,6 +16,7 @@ from app.ui.gradio_app import (
     play_recommendations,
 )
 from config.logger import logger
+from config.prompts import get_dialogue_generation_prompt
 
 streaming_service = get_streaming_session_service()
 
@@ -51,6 +53,21 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
         )
         return
 
+    image_attachments: list[ImageAttachment] | None = None
+    if images:
+        image_attachments = []
+        for img_path in images:
+            if isinstance(img_path, str):
+                image_attachments.append(ImageAttachment(file_path=img_path))
+            elif hasattr(img_path, "name"):
+                image_attachments.append(ImageAttachment(file_path=img_path.name))
+        logger.info(f"Processing {len(image_attachments)} image(s)")
+
+    status_text = "🎤 Transcribing audio"
+    if image_attachments:
+        status_text += f" & 📸 Analyzing {len(image_attachments)} image(s)"
+    status_text += "..."
+
     logger.info(f"Starting streaming audio processing for: {audio_path}")
     yield (
         "<div style='padding: 20px; text-align: center; color: #6b7280;'>Processing...</div>",
@@ -62,39 +79,52 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
         loading_html,
         loading_html,
         loading_html,
-        format_status("Starting parallel processing (STT + Images)...", False),
+        format_status(status_text, False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
     )
 
-    image_attachments: list[ImageAttachment] | None = None
-    if images:
-        image_attachments = []
-        for img_path in images:
-            if isinstance(img_path, str):
-                image_attachments.append(ImageAttachment(file_path=img_path))
-            elif hasattr(img_path, "name"):
-                image_attachments.append(ImageAttachment(file_path=img_path.name))
-        logger.info(f"Processing {len(image_attachments)} image(s)")
+    transcript_task = asyncio.create_task(streaming_service._stt.transcribe(audio_path))
 
-    transcript_raw, image_report = await streaming_service.process_upload(
-        audio_path, image_attachments
-    )
+    image_task = None
+    if image_attachments:
+        image_task = asyncio.create_task(streaming_service._llm.analyze_images(image_attachments))
 
+    transcript_raw = await transcript_task
     logger.info(f"Transcription completed: {len(transcript_raw)} turns")
-    if image_report:
-        logger.info("Image analysis completed")
 
-    image_findings_html = loading_html
-    if image_report:
-        image_findings_html = format_data_card(
-            title="Image Analysis Findings", content=image_report, emoji="🔬"
-        )
+    raw_transcript_text = "\n".join([f"{turn.speaker}: {turn.text}" for turn in transcript_raw])
+    transcript_display = f"""
+    <div style="
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        background-color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+    ">
+        <div style="font-weight: 600; color: #1f2937; margin-bottom: 12px;">📝 Raw Transcript</div>
+        <pre style="
+            white-space: pre-wrap;
+            font-family: monospace;
+            margin: 0;
+            color: #1f2937;
+            background-color: #f9fafb;
+            padding: 12px;
+            border-radius: 4px;
+        ">{raw_transcript_text}</pre>
+    </div>
+    """
+
+    status_after_transcript = "✅ Transcription complete"
+    if image_task:
+        status_after_transcript += " | ⏳ Still processing images..."
+    else:
+        status_after_transcript += " | 🔄 Starting analysis..."
 
     yield (
-        loading_html,
+        transcript_display,
         loading_html,
         "",
         loading_html,
@@ -102,13 +132,39 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
         loading_html,
         loading_html,
         loading_html,
-        image_findings_html,
-        format_status("Transcription complete. Starting streaming analysis...", False),
+        loading_html,
+        format_status(status_after_transcript, False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
     )
+
+    image_report: str | None = None
+    image_findings_html = loading_html
+    if image_task:
+        image_report = await image_task
+        logger.info("Image analysis completed")
+        image_findings_html = format_data_card(
+            title="Image Analysis Findings", content=image_report, emoji="🔬"
+        )
+
+        yield (
+            transcript_display,
+            loading_html,
+            "",
+            loading_html,
+            loading_html,
+            loading_html,
+            loading_html,
+            loading_html,
+            image_findings_html,
+            format_status("✅ Images analyzed | 🔄 Starting consultation analysis...", False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+        )
 
     transcript_html = loading_html
     recs_html = loading_html
@@ -139,7 +195,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Analyzing transcript...", False),
+                    format_status("🔍 Formatting and highlighting transcript...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -165,7 +221,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Extracting complaints...", False),
+                    format_status("📝 Extracting patient complaints...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -187,7 +243,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Extracting diagnosis...", False),
+                    format_status("🩺 Identifying diagnosis...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -217,7 +273,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Extracting medications...", False),
+                    format_status("💊 Extracting prescribed medications...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -239,7 +295,9 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Generating recommendations...", False),
+                    format_status(
+                        f"⚠️ Generating clinical recommendations... ({len(data)} so far)", False
+                    ),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -269,7 +327,9 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Evaluating doctor performance...", False),
+                    format_status(
+                        f"📊 Evaluating doctor performance... ({len(data)} criteria)", False
+                    ),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -290,7 +350,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Evaluating consultation...", False),
+                    format_status("✍️ Writing general evaluation...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -342,6 +402,21 @@ async def generate_and_analyze_streaming(
     if not diagnosis:
         diagnosis = None
 
+    image_attachments: list[ImageAttachment] | None = None
+    if images:
+        image_attachments = []
+        for img_path in images:
+            if isinstance(img_path, str):
+                image_attachments.append(ImageAttachment(file_path=img_path))
+            elif hasattr(img_path, "name"):
+                image_attachments.append(ImageAttachment(file_path=img_path.name))
+        logger.info(f"Processing {len(image_attachments)} image(s)")
+
+    status_text = "🎭 Generating dialogue"
+    if image_attachments:
+        status_text += f" & 📸 Analyzing {len(image_attachments)} image(s)"
+    status_text += "..."
+
     logger.info(f"Generating sample dialogue (diagnosis: {diagnosis}, skill: {doctor_skill})...")
 
     loading_html = (
@@ -357,7 +432,7 @@ async def generate_and_analyze_streaming(
         loading_html,
         loading_html,
         loading_html,
-        format_status("Generating dialogue and analyzing images...", False),
+        format_status(status_text, False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -365,32 +440,52 @@ async def generate_and_analyze_streaming(
         gr.update(interactive=False),
     )
 
-    image_attachments: list[ImageAttachment] | None = None
-    if images:
-        image_attachments = []
-        for img_path in images:
-            if isinstance(img_path, str):
-                image_attachments.append(ImageAttachment(file_path=img_path))
-            elif hasattr(img_path, "name"):
-                image_attachments.append(ImageAttachment(file_path=img_path.name))
-        logger.info(f"Processing {len(image_attachments)} image(s)")
-
-    transcript_turns, image_report = await streaming_service.generate_simulation(
-        diagnosis, doctor_skill, image_attachments
+    system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
+    dialogue_task = asyncio.create_task(
+        streaming_service._llm.generate_dialogue(system_prompt=system_prompt, diagnosis=diagnosis)
     )
 
-    logger.info(f"Dialogue generation completed: {len(transcript_turns)} turns")
-    if image_report:
-        logger.info("Image analysis completed")
+    image_task = None
+    if image_attachments:
+        image_task = asyncio.create_task(streaming_service._llm.analyze_images(image_attachments))
 
-    image_findings_html = loading_html
-    if image_report:
-        image_findings_html = format_data_card(
-            title="Image Analysis Findings", content=image_report, emoji="🔬"
-        )
+    generated_dialogue: GeneratedDialogue = await dialogue_task
+    logger.info(f"Dialogue generation completed: {len(generated_dialogue.dialogue)} turns")
+
+    transcript_turns = [
+        DialogueTurn(speaker=turn.role, text=turn.text) for turn in generated_dialogue.dialogue
+    ]
+
+    raw_transcript_text = "\n".join([f"{turn.speaker}: {turn.text}" for turn in transcript_turns])
+    transcript_display = f"""
+    <div style="
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        background-color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+    ">
+        <div style="font-weight: 600; color: #1f2937; margin-bottom: 12px;">📝 Raw Transcript</div>
+        <pre style="
+            white-space: pre-wrap;
+            font-family: monospace;
+            margin: 0;
+            color: #1f2937;
+            background-color: #f9fafb;
+            padding: 12px;
+            border-radius: 4px;
+        ">{raw_transcript_text}</pre>
+    </div>
+    """
+
+    status_after_dialogue = "✅ Dialogue generated"
+    if image_task:
+        status_after_dialogue += " | ⏳ Still processing images..."
+    else:
+        status_after_dialogue += " | 🔄 Starting analysis..."
 
     yield (
-        loading_html,
+        transcript_display,
         loading_html,
         "",
         loading_html,
@@ -398,14 +493,41 @@ async def generate_and_analyze_streaming(
         loading_html,
         loading_html,
         loading_html,
-        image_findings_html,
-        format_status("Dialogue generated. Starting streaming analysis...", False),
+        loading_html,
+        format_status(status_after_dialogue, False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
     )
+
+    image_report: str | None = None
+    image_findings_html = loading_html
+    if image_task:
+        image_report = await image_task
+        logger.info("Image analysis completed")
+        image_findings_html = format_data_card(
+            title="Image Analysis Findings", content=image_report, emoji="🔬"
+        )
+
+        yield (
+            transcript_display,
+            loading_html,
+            "",
+            loading_html,
+            loading_html,
+            loading_html,
+            loading_html,
+            loading_html,
+            image_findings_html,
+            format_status("✅ Images analyzed | 🔄 Starting consultation analysis...", False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+        )
 
     transcript_html = loading_html
     recs_html = loading_html
@@ -436,7 +558,7 @@ async def generate_and_analyze_streaming(
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Analyzing transcript...", False),
+                    format_status("🔍 Formatting and highlighting transcript...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -463,7 +585,7 @@ async def generate_and_analyze_streaming(
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Extracting complaints...", False),
+                    format_status("📝 Extracting patient complaints...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -486,7 +608,7 @@ async def generate_and_analyze_streaming(
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Extracting diagnosis...", False),
+                    format_status("🩺 Identifying diagnosis...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -517,7 +639,7 @@ async def generate_and_analyze_streaming(
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Extracting medications...", False),
+                    format_status("💊 Extracting prescribed medications...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -540,7 +662,9 @@ async def generate_and_analyze_streaming(
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Generating recommendations...", False),
+                    format_status(
+                        f"⚠️ Generating clinical recommendations... ({len(data)} so far)", False
+                    ),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -571,7 +695,9 @@ async def generate_and_analyze_streaming(
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Evaluating doctor performance...", False),
+                    format_status(
+                        f"📊 Evaluating doctor performance... ({len(data)} criteria)", False
+                    ),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -593,7 +719,7 @@ async def generate_and_analyze_streaming(
                     diagnosis_html,
                     meds_html,
                     image_findings_html,
-                    format_status("Evaluating consultation...", False),
+                    format_status("✍️ Writing general evaluation...", False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
@@ -731,11 +857,10 @@ def create_streaming_app() -> gr.Blocks:
 
         gr.Markdown("---")
 
-        with gr.Row():
-            with gr.Column():
-                image_findings_output = gr.HTML(
-                    value="<div style='color: #6b7280; font-style: italic;'>Image findings will appear here...</div>"
-                )
+        with gr.Accordion("🔬 Image Analysis Findings", open=False):
+            image_findings_output = gr.HTML(
+                value="<div style='color: #6b7280; font-style: italic;'>Image findings will appear here...</div>"
+            )
 
         gr.Markdown("---")
 
@@ -753,7 +878,6 @@ def create_streaming_app() -> gr.Blocks:
                 meds_output = gr.HTML(
                     value="<div style='color: #6b7280; font-style: italic;'>Medications will appear here...</div>"
                 )
-
 
         gr.Markdown("---")
 

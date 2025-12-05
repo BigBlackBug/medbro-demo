@@ -9,7 +9,6 @@ from app.core.interfaces import LLMProvider
 from app.core.models import (
     AnalysisResult,
     ComplaintsResponse,
-    CriteriaResponse,
     DiagnosisResponse,
     DialogueTurn,
     DoctorEvaluation,
@@ -21,7 +20,6 @@ from app.core.models import (
     Medication,
     MedicationsResponse,
     PrescriptionReview,
-    RecommendationsResponse,
     StructuredData,
 )
 from config.logger import logger
@@ -421,7 +419,6 @@ class OpenAILLM(LLMProvider):
             model=config.LLM_MODEL,
             instructions=system_prompt,
             input=input_text,
-            text_format=RecommendationsResponse,
             temperature=0.2,
             previous_response_id=previous_response_id,
         )
@@ -441,7 +438,6 @@ class OpenAILLM(LLMProvider):
             model=config.LLM_MODEL,
             instructions=system_prompt,
             input="Continue analysis with criteria.",
-            text_format=CriteriaResponse,
             temperature=0.2,
             previous_response_id=previous_response_id,
         )

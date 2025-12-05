@@ -245,6 +245,8 @@ FORMAT REQUIREMENTS:
 - Maximum 5 recommendations
 - Each recommendation must be exactly 2 sentences
 - Be concise and specific
+- After EACH recommendation, write the delimiter: __ITEM__
+- Do not use JSON or structured format, just plain text
 
 IMPORTANT: If an image analysis report is provided:
 - Verify that the doctor acknowledged and acted upon the image findings
@@ -264,22 +266,42 @@ Include recommendations if the doctor:
 - Did not follow clinical protocols for the condition
 - Made questionable clinical decisions without proper justification
 
-If the doctor's actions were appropriate and safe, return an empty list.
+If the doctor's actions were appropriate and safe, write "No recommendations." and stop.
+
+EXAMPLE OUTPUT FORMAT:
+The doctor should verify patient allergies before prescribing antibiotics. This is a critical safety step that was omitted.
+__ITEM__
+Consider ordering a chest X-ray to rule out pneumonia given the persistent cough. This would help confirm the diagnosis.
+__ITEM__
 """
 
 
 def get_criteria_streaming_prompt() -> str:
     criteria_defs = "\n".join([f"     - {k}: {v}" for k, v in config.EVALUATION_CRITERIA.items()])
+    criteria_keys = ", ".join(config.EVALUATION_CRITERIA.keys())
     return f"""{get_base_context()}
 
 Based on the consultation analysis, evaluate the doctor's performance using these criteria:
 
 {criteria_defs}
 
-For each criterion provide:
-- name: criterion name (one of: {', '.join(config.EVALUATION_CRITERIA.keys())})
-- score: score from 1 to 5 (be strict!)
-- comment: exactly 2 sentences justifying the score (be concise and specific)
+For each criterion provide evaluation in this exact format:
+- Line 1: CRITERION_NAME: criterion name (one of: {criteria_keys})
+- Line 2: SCORE: score from 1 to 5 (be strict!)
+- Line 3: COMMENT: exactly 2 sentences justifying the score (be concise and specific)
+- Line 4: __ITEM__ (delimiter)
+
+Do not use JSON. Use plain text format as shown above.
+
+EXAMPLE OUTPUT FORMAT:
+CRITERION_NAME: empathy
+SCORE: 3
+COMMENT: The doctor showed basic courtesy but didn't express much empathy towards the patient's concerns. More active listening and validation would improve the rapport.
+__ITEM__
+CRITERION_NAME: clinical_reasoning
+SCORE: 4
+COMMENT: The diagnostic approach was logical and systematic. Minor improvement could be made in considering differential diagnoses.
+__ITEM__
 """
 
 

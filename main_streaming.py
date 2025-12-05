@@ -10,4 +10,3 @@ if __name__ == "__main__":
     logger.info("Launching Gradio interface...")
     port = int(os.getenv("PORT", 7861))
     demo.launch(server_name="0.0.0.0", server_port=port)
-

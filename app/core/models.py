@@ -58,6 +58,7 @@ class GeneratedDialogueTurn(BaseModel):
 class GeneratedDialogue(BaseModel):
     dialogue: list[GeneratedDialogueTurn]
 
+
 # streaming responses
 class ComplaintsResponse(BaseModel):
     complaints: list[str] = Field(default_factory=list)
@@ -81,4 +82,3 @@ class RecommendationsResponse(BaseModel):
 
 class CriteriaResponse(BaseModel):
     criteria: list[EvaluationCriterion] = Field(default_factory=list)
-

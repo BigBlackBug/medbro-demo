@@ -4,7 +4,6 @@ from typing import Any
 from app.core.models import (
     AnalysisResult,
     ComplaintsResponse,
-    CriteriaResponse,
     DiagnosisResponse,
     DialogueTurn,
     DoctorEvaluation,
@@ -14,7 +13,6 @@ from app.core.models import (
     Medication,
     MedicationsResponse,
     PrescriptionReview,
-    RecommendationsResponse,
     StructuredData,
 )
 from app.services.llm import OpenAILLM
@@ -37,6 +35,29 @@ class MedicalSessionStreamingService:
         self._stt = get_stt_provider()
         self._llm = OpenAILLM()
         logger.info("MedicalSessionStreamingService initialized")
+
+    def _parse_criterion(self, text: str) -> EvaluationCriterion | None:
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        criterion_name: str | None = None
+        score: int | None = None
+        comment: str | None = None
+
+        for line in lines:
+            if line.startswith("CRITERION_NAME:"):
+                criterion_name = line.replace("CRITERION_NAME:", "").strip()
+            elif line.startswith("SCORE:"):
+                try:
+                    score = int(line.replace("SCORE:", "").strip())
+                except ValueError:
+                    logger.warning(f"Failed to parse score: {line}")
+            elif line.startswith("COMMENT:"):
+                comment = line.replace("COMMENT:", "").strip()
+
+        if criterion_name and score is not None and comment:
+            return EvaluationCriterion(name=criterion_name, score=score, comment=comment)
+
+        logger.warning(f"Failed to parse criterion from text: {text}")
+        return None
 
     async def process_upload(
         self, audio_path: str, images: list[ImageAttachment] | None = None
@@ -227,24 +248,35 @@ class MedicalSessionStreamingService:
                 image_analysis=image_report,
             )
 
+            buffer = ""
             async with stream_manager as stream:
                 async for event in stream:
-                    if event.type == "response.completed":
+                    if event.type == "response.output_text.delta":
+                        if hasattr(event, "delta") and event.delta:
+                            buffer += event.delta
+
+                            if "__ITEM__" in buffer:
+                                parts = buffer.split("__ITEM__")
+                                for i in range(len(parts) - 1):
+                                    item_text = parts[i].strip()
+                                    if item_text and item_text.lower() != "no recommendations.":
+                                        recommendations.append(item_text)
+                                        yield {
+                                            "stage": "recommendations",
+                                            "status": "streaming",
+                                            "data": recommendations,
+                                        }
+                                buffer = parts[-1]
+                    elif event.type == "response.completed":
                         logger.info("→ Recommendations stream completed")
 
                 final_response = await stream.get_final_response()
                 response_id = final_response.id
 
-                if final_response.output:
-                    for message in final_response.output:
-                        if hasattr(message, "content"):
-                            for content in message.content:
-                                if hasattr(content, "parsed"):
-                                    parsed_recommendations: RecommendationsResponse = content.parsed
-                                    recommendations = parsed_recommendations.recommendations
+            if buffer.strip() and buffer.strip().lower() != "no recommendations.":
+                recommendations.append(buffer.strip())
 
             logger.info(f"→ Recommendations complete: {len(recommendations)} recommendations")
-            yield {"stage": "recommendations", "status": "streaming", "data": recommendations}
             yield {"stage": "recommendations", "status": "complete", "data": recommendations}
 
             logger.info("→ Starting criteria stage")
@@ -255,24 +287,39 @@ class MedicalSessionStreamingService:
                 system_prompt=get_criteria_streaming_prompt(),
             )
 
+            buffer = ""
             async with stream_manager as stream:
                 async for event in stream:
-                    if event.type == "response.completed":
+                    if event.type == "response.output_text.delta":
+                        if hasattr(event, "delta") and event.delta:
+                            buffer += event.delta
+
+                            if "__ITEM__" in buffer:
+                                parts = buffer.split("__ITEM__")
+                                for i in range(len(parts) - 1):
+                                    item_text = parts[i].strip()
+                                    if item_text:
+                                        criterion = self._parse_criterion(item_text)
+                                        if criterion:
+                                            criteria.append(criterion)
+                                            yield {
+                                                "stage": "criteria",
+                                                "status": "streaming",
+                                                "data": criteria,
+                                            }
+                                buffer = parts[-1]
+                    elif event.type == "response.completed":
                         logger.info("→ Criteria stream completed")
 
                 final_response = await stream.get_final_response()
                 response_id = final_response.id
 
-                if final_response.output:
-                    for message in final_response.output:
-                        if hasattr(message, "content"):
-                            for content in message.content:
-                                if hasattr(content, "parsed"):
-                                    parsed_criteria: CriteriaResponse = content.parsed
-                                    criteria = parsed_criteria.criteria
+            if buffer.strip():
+                criterion = self._parse_criterion(buffer.strip())
+                if criterion:
+                    criteria.append(criterion)
 
             logger.info(f"→ Criteria complete: {len(criteria)} criteria")
-            yield {"stage": "criteria", "status": "streaming", "data": criteria}
             yield {"stage": "criteria", "status": "complete", "data": criteria}
 
             logger.info("→ Starting general_comment stage")
