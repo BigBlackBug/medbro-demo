@@ -2148,6 +2148,18 @@ typing-extensions = ">=3.7.4.3"
 standard = ["rich (>=10.11.0)", "shellingham (>=1.3.0)"]
 
 [[package]]
+name = "types-pyyaml"
+version = "6.0.12.20250915"
+description = "Typing stubs for PyYAML"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "types_pyyaml-6.0.12.20250915-py3-none-any.whl", hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6"},
+    {file = "types_pyyaml-6.0.12.20250915.tar.gz", hash = "sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3"},
+]
+
+[[package]]
 name = "types-requests"
 version = "2.32.4.20250913"
 description = "Typing stubs for requests"
@@ -2320,4 +2332,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.13"
-content-hash = "bd81fb687bee3fecd7dc8a404c8c49f15d49fded08a4805ec89a7a17332cb973"
+content-hash = "3327936cd08a0ab6dcdca8cbb2cd196a6806a88a9ef47c2c3305e40ecaa10400"
