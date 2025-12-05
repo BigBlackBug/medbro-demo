@@ -228,24 +228,16 @@ class OpenAILLM(LLMProvider):
         else:
             logger.info(f"OpenAILLM: Sending request to {config.LLM_MODEL}")
 
-        # No images passed here, they are pre-analyzed
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": dialogue_text},
-        ]
-
-        response = await self.client.beta.chat.completions.parse(
+        response = await self.client.responses.parse(
             model=config.LLM_MODEL,
-            messages=messages,
-            response_format=AnalysisResult,
+            instructions=system_prompt,
+            input=dialogue_text,
+            text_format=AnalysisResult,
             temperature=0.2,
         )
 
-        parsed_result = response.choices[0].message.parsed
-        if not parsed_result:
-            logger.error("OpenAILLM: Received empty or invalid response")
-            raise ValueError("Empty or invalid response from LLM")
-
+        parsed_result = response.output_parsed
+        
         logger.info("OpenAILLM: Received valid response")
         return parsed_result
 
@@ -260,20 +252,16 @@ class OpenAILLM(LLMProvider):
         else:
             logger.info(f"OpenAILLM: Sending raw request to {config.LLM_MODEL}")
 
-        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": text}]
-
-        response = await self.client.beta.chat.completions.parse(
+        response = await self.client.responses.parse(
             model=config.LLM_MODEL,
-            messages=messages,
-            response_format=AnalysisResult,
+            instructions=system_prompt,
+            input=text,
+            text_format=AnalysisResult,
             temperature=0.2,
         )
 
-        parsed_result = response.choices[0].message.parsed
-        if not parsed_result:
-            logger.error("OpenAILLM: Received empty or invalid response")
-            raise ValueError("Empty or invalid response from LLM")
-
+        parsed_result = response.output_parsed
+        
         logger.info("OpenAILLM: Received valid response")
         return parsed_result
 
@@ -283,21 +271,17 @@ class OpenAILLM(LLMProvider):
         logger.info(
             f"OpenAILLM: Generating dialogue with {config.LLM_MODEL}{f' for diagnosis: {diagnosis}' if diagnosis else ''}"
         )
-        response = await self.client.beta.chat.completions.parse(
+
+        response = await self.client.responses.parse(
             model=config.LLM_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "Generate a realistic doctor-patient dialogue."},
-            ],
-            response_format=GeneratedDialogue,
+            instructions=system_prompt,
+            input="Generate a realistic doctor-patient dialogue.",
+            text_format=GeneratedDialogue,
             temperature=0.8,
         )
 
-        parsed_result = response.choices[0].message.parsed
-        if not parsed_result:
-            logger.error("OpenAILLM: Received empty or invalid response for dialogue generation")
-            raise ValueError("Empty or invalid response from LLM")
-
+        parsed_result = response.output_parsed
+        
         logger.info("OpenAILLM: Dialogue generation completed")
         return parsed_result
 
