@@ -18,15 +18,21 @@ from app.core.models import (
     StructuredData,
 )
 from config.logger import logger
+from config.prompts import get_image_analysis_prompt
 from config.settings import config
 
 
 class MockLLM(LLMProvider):
+    async def analyze_images(self, images: list[ImageAttachment]) -> str:
+        logger.info("MockLLM: Analyzing images...")
+        await asyncio.sleep(1)
+        return "Mock Image Analysis: Found fracture in X-ray. Patient history confirms trauma."
+
     async def analyze(
         self,
         dialogue: list[DialogueTurn],
         system_prompt: str,
-        images: list[ImageAttachment] | None = None,
+        image_analysis: str | None = None,
     ) -> AnalysisResult:
         logger.info("MockLLM: Analyzing dialogue...")
         await asyncio.sleep(2)
@@ -42,6 +48,7 @@ class MockLLM(LLMProvider):
                         duration="7 дней",
                     )
                 ],
+                image_findings=[image_analysis] if image_analysis else [],
             ),
             prescription_review=PrescriptionReview(
                 status="warning",
@@ -89,10 +96,10 @@ class MockLLM(LLMProvider):
         )
 
     async def analyze_raw(
-        self, text: str, system_prompt: str, images: list[ImageAttachment] | None = None
+        self, text: str, system_prompt: str, image_analysis: str | None = None
     ) -> AnalysisResult:
         logger.info("MockLLM: Analyzing raw text...")
-        return await self.analyze([], system_prompt, images)
+        return await self.analyze([], system_prompt, image_analysis)
 
     async def generate_dialogue(
         self, system_prompt: str, diagnosis: str | None = None
@@ -184,28 +191,54 @@ class OpenAILLM(LLMProvider):
 
         return messages
 
+    async def analyze_images(self, images: list[ImageAttachment]) -> str:
+        logger.info(f"OpenAILLM: Analyzing {len(images)} images...")
+        if not images:
+            return ""
+
+        system_prompt = get_image_analysis_prompt()
+        messages = self._build_messages_with_images(
+            "Please analyze these medical images/documents.", system_prompt, images
+        )
+
+        response = await self.client.chat.completions.create(
+            model=config.LLM_MODEL,
+            messages=messages,
+            temperature=0.2,
+        )
+
+        result = response.choices[0].message.content
+        logger.info("OpenAILLM: Image analysis complete")
+        logger.info(f"Image analysis result: {result}")
+        return result or "No analysis generated."
+
     async def analyze(
         self,
         dialogue: list[DialogueTurn],
         system_prompt: str,
-        images: list[ImageAttachment] | None = None,
+        image_analysis: str | None = None,
     ) -> AnalysisResult:
         dialogue_text = "\n".join([f"{turn.speaker}: {turn.text}" for turn in dialogue])
 
-        if images:
+        if image_analysis:
             logger.info(
-                f"OpenAILLM: Sending request to {config.LLM_MODEL} with {len(images)} image(s)"
+                f"OpenAILLM: Sending request to {config.LLM_MODEL} with image analysis context"
             )
-            dialogue_text = f"Consultation dialogue:\n{dialogue_text}\n\nPlease analyze the dialogue along with the provided medical images."
+            dialogue_text = f"Consultation dialogue:\n{dialogue_text}\n\nImage/Document Analysis Report:\n{image_analysis}"
         else:
             logger.info(f"OpenAILLM: Sending request to {config.LLM_MODEL}")
 
-        messages = self._build_messages_with_images(dialogue_text, system_prompt, images)
+        # No images passed here, they are pre-analyzed
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": dialogue_text},
+        ]
 
         response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=messages,
             response_format=AnalysisResult,
+            temperature=0.2,
         )
 
         parsed_result = response.choices[0].message.parsed
@@ -217,22 +250,23 @@ class OpenAILLM(LLMProvider):
         return parsed_result
 
     async def analyze_raw(
-        self, text: str, system_prompt: str, images: list[ImageAttachment] | None = None
+        self, text: str, system_prompt: str, image_analysis: str | None = None
     ) -> AnalysisResult:
-        if images:
+        if image_analysis:
             logger.info(
-                f"OpenAILLM: Sending raw request to {config.LLM_MODEL} with {len(images)} image(s)"
+                f"OpenAILLM: Sending raw request to {config.LLM_MODEL} with image analysis context"
             )
-            text = f"{text}\n\nPlease analyze the text along with the provided medical images."
+            text = f"{text}\n\nImage/Document Analysis Report:\n{image_analysis}"
         else:
             logger.info(f"OpenAILLM: Sending raw request to {config.LLM_MODEL}")
 
-        messages = self._build_messages_with_images(text, system_prompt, images)
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": text}]
 
         response = await self.client.beta.chat.completions.parse(
             model=config.LLM_MODEL,
             messages=messages,
             response_format=AnalysisResult,
+            temperature=0.2,
         )
 
         parsed_result = response.choices[0].message.parsed
@@ -256,6 +290,7 @@ class OpenAILLM(LLMProvider):
                 {"role": "user", "content": "Generate a realistic doctor-patient dialogue."},
             ],
             response_format=GeneratedDialogue,
+            temperature=0.8,
         )
 
         parsed_result = response.choices[0].message.parsed
@@ -263,7 +298,7 @@ class OpenAILLM(LLMProvider):
             logger.error("OpenAILLM: Received empty or invalid response for dialogue generation")
             raise ValueError("Empty or invalid response from LLM")
 
-        logger.info("OpenAILLM: Received generated dialogue")
+        logger.info("OpenAILLM: Dialogue generation completed")
         return parsed_result
 
 

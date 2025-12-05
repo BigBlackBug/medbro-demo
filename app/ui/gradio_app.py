@@ -3,7 +3,6 @@ import gradio as gr
 from app.core.models import AnalysisResult, DialogueTurn, ImageAttachment
 from app.services.session import get_session_service
 from config.logger import logger
-from config.prompts import get_analysis_prompt, get_dialogue_generation_prompt
 from config.settings import config
 
 service = get_session_service()
@@ -62,6 +61,8 @@ def format_criteria_cards(criteria_list: list) -> str:
                     color: {color};
                     padding: 4px 12px;
                     border-radius: 6px;
+                    font-weight: 600;
+                    font-size: 14px;
                     font-weight: 600;
                     font-size: 14px;
                 ">{score}/5</span>
@@ -289,16 +290,14 @@ async def analyze_visit(audio_path: str, images: list | None):
         loading_html,
         loading_html,
         loading_html,
-        format_status("Starting audio processing...", False),
+        format_status("Starting parallel processing (STT + Images)...", False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
     )
 
-    transcript_raw = await service.stt.transcribe(audio_path)
-    logger.info(f"Transcription completed: {len(transcript_raw)} turns")
-
+    # Prepare image attachments
     image_attachments: list[ImageAttachment] | None = None
     if images:
         image_attachments = []
@@ -308,6 +307,13 @@ async def analyze_visit(audio_path: str, images: list | None):
             elif hasattr(img_path, "name"):
                 image_attachments.append(ImageAttachment(file_path=img_path.name))
         logger.info(f"Processing {len(image_attachments)} image(s)")
+
+    # Parallel Execution via Service
+    transcript_raw, image_report = await service.process_upload(audio_path, image_attachments)
+
+    logger.info(f"Transcription completed: {len(transcript_raw)} turns")
+    if image_report:
+        logger.info("Image analysis completed")
 
     yield (
         format_transcript_plain(transcript_raw),
@@ -326,10 +332,7 @@ async def analyze_visit(audio_path: str, images: list | None):
         gr.update(interactive=False),
     )
 
-    system_prompt = get_analysis_prompt()
-    analysis = await service.llm.analyze(
-        dialogue=transcript_raw, system_prompt=system_prompt, images=image_attachments
-    )
+    analysis = await service.analyze_consultation(transcript_raw, image_report)
     logger.info("Analysis completed")
 
     recs_html = format_recommendations_html(analysis.prescription_review.recommendations)
@@ -393,6 +396,7 @@ async def analyze_visit(audio_path: str, images: list | None):
         gr.update(interactive=True),
         gr.update(interactive=True),
         gr.update(interactive=True),
+        gr.update(interactive=True),
         gr.update(interactive=has_recs),
     )
 
@@ -417,7 +421,7 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, images:
         loading_html,
         loading_html,
         loading_html,
-        format_status("Generating sample dialogue...", False),
+        format_status("Generating dialogue and analyzing images...", False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -425,16 +429,7 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, images:
         gr.update(interactive=False),
     )
 
-    system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
-    generated_dialogue = await service.llm.generate_dialogue(
-        system_prompt=system_prompt, diagnosis=diagnosis
-    )
-
-    transcript_turns = [
-        DialogueTurn(speaker=turn.role, text=turn.text) for turn in generated_dialogue.dialogue
-    ]
-    logger.info(f"Dialogue generation completed: {len(transcript_turns)} turns")
-
+    # Prepare image attachments
     image_attachments: list[ImageAttachment] | None = None
     if images:
         image_attachments = []
@@ -444,6 +439,13 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, images:
             elif hasattr(img_path, "name"):
                 image_attachments.append(ImageAttachment(file_path=img_path.name))
         logger.info(f"Processing {len(image_attachments)} image(s)")
+
+    # Parallel Execution via Service
+    transcript_turns, image_report = await service.generate_simulation(
+        diagnosis, doctor_skill, image_attachments
+    )
+
+    logger.info(f"Dialogue generation completed: {len(transcript_turns)} turns")
 
     yield (
         format_transcript_plain(transcript_turns),
@@ -463,10 +465,7 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, images:
         gr.update(interactive=False),
     )
 
-    system_prompt = get_analysis_prompt()
-    analysis = await service.llm.analyze(
-        dialogue=transcript_turns, system_prompt=system_prompt, images=image_attachments
-    )
+    analysis = await service.analyze_consultation(transcript_turns, image_report)
     logger.info("Analysis completed")
     recs_html = format_recommendations_html(analysis.prescription_review.recommendations)
     recs_text = (
@@ -561,7 +560,7 @@ def create_app():
     with gr.Blocks(title="Medical AI Assistant") as app:
         gr.HTML("<style>footer {visibility: hidden}</style>")
         gr.Markdown("## 🏥 Medical AI Assistant Demo")
-        
+
         status_output = gr.HTML(value="", visible=True)
 
         # Top Block: Input Tabs and Transcription
@@ -684,9 +683,7 @@ def create_app():
             image_findings_output,
         ]
 
-        audio_input.change(
-            fn=toggle_analyze_button, inputs=[audio_input], outputs=[analyze_btn]
-        )
+        audio_input.change(fn=toggle_analyze_button, inputs=[audio_input], outputs=[analyze_btn])
 
         analyze_btn.click(
             fn=analyze_visit,

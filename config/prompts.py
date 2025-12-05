@@ -1,18 +1,35 @@
 from .settings import config
 
+SYSTEM_PROMPT_IMAGE_ANALYSIS = """
+You are a medical expert. Your task is to analyze medical images and documents provided by a patient.
+These images may include X-rays, CT scans, lab reports, past prescriptions, medications, or other medical data.
+
+Your goal is to:
+1. **Extract the most important information** and **determine the diagnosis** based on the scans/analyses/tests.
+2. **Parse all other documents** (prescriptions, history, etc.) and include them as a separate block.
+
+Output the analysis in the following format:
+
+**DIAGNOSTIC FINDINGS:**
+[Diagnosis and key findings from scans/images]
+
+**DOCUMENT SUMMARY:**
+[Parsed summary of other documents, medications, etc.]
+"""
+
 SYSTEM_PROMPT_ANALYSIS = """
 You are an experienced medical expert and mentor. Your task is to analyze the transcription of a doctor-patient consultation.
 
-Input data: dialogue text and optionally medical images (X-rays, lab reports, prescriptions, medical documents).
+Input data: 
+1. Dialogue text
+2. (Optional) Analysis report of medical images/documents brought by the patient.
 
-If images are provided:
-- Carefully analyze each image in detail
-- For X-rays: identify anatomical structures, look for abnormalities, pathologies, fractures, lesions, or other findings
-- For documents: extract relevant medical information, lab values, previous diagnoses, medications
-- For prescriptions: verify medications, dosages, and administration instructions
-- Integrate image findings with the consultation dialogue analysis
+If an image analysis report is provided:
+- Use the findings (diagnosis, document summary) to contextalize the consultation.
+- Verify if the doctor's actions align with the information in the image report (e.g. if X-ray shows fracture, did the doctor treat it?).
+- Integrate image findings into the structured data.
 
-Analyze the dialogue and images (if any) and provide the following information:
+Analyze the dialogue and image report (if any) and provide the following information:
 
 1. structured_data (structured consultation data):
    - complaints: list of strings with patient complaints
@@ -22,7 +39,7 @@ Analyze the dialogue and images (if any) and provide the following information:
      * dosage: dosage (or null)
      * frequency: frequency of administration (or null)
      * duration: course duration (or null)
-   - image_findings: list of strings with key findings from provided images (X-rays, lab reports, etc.). Leave empty if no images provided
+   - image_findings: list of strings with key findings from the provided image analysis report. Leave empty if no report provided.
 The images provided are brought in by the patient, so they should not be attributed to the doctor.
 
 2. prescription_review (prescription analysis):
@@ -52,7 +69,6 @@ The images provided are brought in by the patient, so they should not be attribu
      * Examples: chronic conditions, previous surgeries, allergies, family history, specific durations
      * Keep highlights brief and focused on essential information
    - Prescriptions: <span style="background-color: #e6ffed; color: #22863a;">prescribed medications and regimen</span>
-   - Include image transcriptions if provided and relevant: <span style="background-color: #e8f4f8; color: #purple;">image transcription</span>
 """
 
 SYSTEM_PROMPT_GENERATE_DIALOGUE = """
@@ -88,6 +104,10 @@ Example JSON:
 def get_analysis_prompt() -> str:
     criteria_names = ", ".join([f'"{k}"' for k in config.EVALUATION_CRITERIA.keys()])
     return SYSTEM_PROMPT_ANALYSIS.format(criteria_list=criteria_names)
+
+
+def get_image_analysis_prompt() -> str:
+    return SYSTEM_PROMPT_IMAGE_ANALYSIS
 
 
 def get_dialogue_generation_prompt(diagnosis: str | None = None, doctor_skill: int = 5) -> str:

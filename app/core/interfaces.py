@@ -15,17 +15,24 @@ class STTProvider(ABC):
 
 class LLMProvider(ABC):
     @abstractmethod
+    async def analyze_images(
+        self,
+        images: list[ImageAttachment],
+    ) -> str:
+        """Analyzes medical images and returns a text report."""
+
+    @abstractmethod
     async def analyze(
         self,
         dialogue: list[DialogueTurn],
         system_prompt: str,
-        images: list[ImageAttachment] | None = None,
+        image_analysis: str | None = None,
     ) -> AnalysisResult:
         """Analyzes dialogue and returns structured result."""
 
     @abstractmethod
     async def analyze_raw(
-        self, text: str, system_prompt: str, images: list[ImageAttachment] | None = None
+        self, text: str, system_prompt: str, image_analysis: str | None = None
     ) -> AnalysisResult:
         """Analyzes raw text and returns structured result."""
 
