@@ -34,12 +34,12 @@ Set my Render workspace to medspace
   ```
 
 ### Linting and Formatting
-- ALWAYS use `make lint` and `make format` commands instead of direct `poetry run` commands
+- ALWAYS use `make lint` commands instead of direct `poetry run` commands
 - NEVER use `poetry run mypy`, `poetry run black`, `poetry run isort` etc. directly - always use make commands
 - ALWAYS run `make lint` to check for linting errors before completing any code changes
 - Fix all linting errors before considering the task complete
-- Use `make format` to auto-format code, but always verify with `make lint` afterwards
 - **DO NOT** lint or format non-code files (like `.md`, `.txt`, `.yaml`, `.json`) or configuration files (like those in `config/`). Only apply linting and formatting to Python source code.
+- **DO NOT** call `make format`
 
 ### Using make commands with specific files
 Both `make lint` and `make format` accept a `FILES` parameter for checking/formatting specific files or directories:
@@ -52,7 +52,6 @@ make lint FILES="app/services/"
 
 # Default behavior (entire project)
 make lint
-make format
 ```
 
 **Note:** When using `make lint FILES="..."` with specific files, mypy may still report errors from dependency files (imports) even though you're only checking specific files. This is expected behavior as mypy performs type checking across the entire import graph.

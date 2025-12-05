@@ -57,3 +57,28 @@ class GeneratedDialogueTurn(BaseModel):
 
 class GeneratedDialogue(BaseModel):
     dialogue: list[GeneratedDialogueTurn]
+
+# streaming responses
+class ComplaintsResponse(BaseModel):
+    complaints: list[str] = Field(default_factory=list)
+
+
+class DiagnosisResponse(BaseModel):
+    diagnosis: str | None = None
+
+
+class MedicationsResponse(BaseModel):
+    medications: list[Medication] = Field(default_factory=list)
+
+
+class ImageFindingsResponse(BaseModel):
+    image_findings: list[str] = Field(default_factory=list)
+
+
+class RecommendationsResponse(BaseModel):
+    recommendations: list[str] = Field(default_factory=list)
+
+
+class CriteriaResponse(BaseModel):
+    criteria: list[EvaluationCriterion] = Field(default_factory=list)
+

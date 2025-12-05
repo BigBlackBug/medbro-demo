@@ -8,14 +8,20 @@ from openai import AsyncOpenAI
 from app.core.interfaces import LLMProvider
 from app.core.models import (
     AnalysisResult,
+    ComplaintsResponse,
+    CriteriaResponse,
+    DiagnosisResponse,
     DialogueTurn,
     DoctorEvaluation,
     EvaluationCriterion,
     GeneratedDialogue,
     GeneratedDialogueTurn,
     ImageAttachment,
+    ImageFindingsResponse,
     Medication,
+    MedicationsResponse,
     PrescriptionReview,
+    RecommendationsResponse,
     StructuredData,
 )
 from config.logger import logger
@@ -210,7 +216,7 @@ class OpenAILLM(LLMProvider):
 
         result = response.choices[0].message.content
         logger.info("OpenAILLM: Image analysis complete")
-        logger.info(f"Image analysis result: {result}")
+        # logger.info(f"Image analysis result: {result}")
         return result or "No analysis generated."
 
     async def analyze(
@@ -291,6 +297,175 @@ class OpenAILLM(LLMProvider):
         if parsed_result is None:
             raise ValueError("Failed to generate dialogue from LLM")
         return parsed_result
+
+    async def analyze_formatted_transcript_streaming(
+        self,
+        dialogue: list[DialogueTurn],
+        system_prompt: str,
+    ) -> Any:
+        dialogue_text = "\n".join([f"{turn.speaker}: {turn.text}" for turn in dialogue])
+
+        logger.info("OpenAILLM: Starting formatted transcript streaming...")
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            instructions=system_prompt,
+            input=dialogue_text,
+            temperature=0.2,
+        )
+
+        return stream
+
+    async def analyze_complaints_streaming(
+        self,
+        previous_response_id: str,
+        system_prompt: str,
+    ) -> Any:
+        logger.info(
+            f"OpenAILLM: Starting complaints streaming with previous_response_id={previous_response_id}..."
+        )
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            instructions=system_prompt,
+            input="Continue analysis with complaints.",
+            text_format=ComplaintsResponse,
+            temperature=0.2,
+            previous_response_id=previous_response_id,
+        )
+
+        return stream
+
+    async def analyze_diagnosis_streaming(
+        self,
+        previous_response_id: str,
+        system_prompt: str,
+        image_analysis: str | None = None,
+    ) -> Any:
+        logger.info(
+            f"OpenAILLM: Starting diagnosis streaming with previous_response_id={previous_response_id}..."
+        )
+
+        input_text = "Continue analysis with diagnosis."
+        if image_analysis:
+            input_text = f"{input_text}\n\nImage/Document Analysis Report:\n{image_analysis}"
+            logger.info("Added image analysis report to diagnosis context")
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            instructions=system_prompt,
+            input=input_text,
+            text_format=DiagnosisResponse,
+            temperature=0.2,
+            previous_response_id=previous_response_id,
+        )
+
+        return stream
+
+    async def analyze_medications_streaming(
+        self,
+        previous_response_id: str,
+        system_prompt: str,
+    ) -> Any:
+        logger.info(
+            f"OpenAILLM: Starting medications streaming with previous_response_id={previous_response_id}..."
+        )
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            instructions=system_prompt,
+            input="Continue analysis with medications.",
+            text_format=MedicationsResponse,
+            temperature=0.2,
+            previous_response_id=previous_response_id,
+        )
+
+        return stream
+
+    async def analyze_image_findings_streaming(
+        self,
+        previous_response_id: str,
+        system_prompt: str,
+    ) -> Any:
+        logger.info(
+            f"OpenAILLM: Starting image findings streaming with previous_response_id={previous_response_id}..."
+        )
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            instructions=system_prompt,
+            input="Continue analysis with image findings.",
+            text_format=ImageFindingsResponse,
+            temperature=0.2,
+            previous_response_id=previous_response_id,
+        )
+
+        return stream
+
+    async def analyze_recommendations_streaming(
+        self,
+        previous_response_id: str,
+        system_prompt: str,
+        image_analysis: str | None = None,
+    ) -> Any:
+        logger.info(
+            f"OpenAILLM: Starting recommendations streaming with previous_response_id={previous_response_id}..."
+        )
+
+        input_text = "Continue analysis with recommendations."
+        if image_analysis:
+            input_text = f"{input_text}\n\nImage/Document Analysis Report:\n{image_analysis}"
+            logger.info("Added image analysis report to recommendations context")
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            instructions=system_prompt,
+            input=input_text,
+            text_format=RecommendationsResponse,
+            temperature=0.2,
+            previous_response_id=previous_response_id,
+        )
+
+        return stream
+
+    async def analyze_criteria_streaming(
+        self,
+        previous_response_id: str,
+        system_prompt: str,
+    ) -> Any:
+        logger.info(
+            f"OpenAILLM: Starting criteria streaming with previous_response_id={previous_response_id}..."
+        )
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            instructions=system_prompt,
+            input="Continue analysis with criteria.",
+            text_format=CriteriaResponse,
+            temperature=0.2,
+            previous_response_id=previous_response_id,
+        )
+
+        return stream
+
+    async def analyze_general_comment_streaming(
+        self,
+        previous_response_id: str,
+        system_prompt: str,
+    ) -> Any:
+        logger.info(
+            f"OpenAILLM: Starting general comment streaming with previous_response_id={previous_response_id}..."
+        )
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            instructions=system_prompt,
+            input="Continue analysis with general comment.",
+            temperature=0.2,
+            previous_response_id=previous_response_id,
+        )
+
+        return stream
 
 
 def get_llm_provider() -> LLMProvider:
