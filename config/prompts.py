@@ -113,8 +113,7 @@ def get_analysis_prompt() -> str:
     criteria_defs = "\n".join([f"     - {k}: {v}" for k, v in config.EVALUATION_CRITERIA.items()])
     criteria_keys = ", ".join([f'"{k}"' for k in config.EVALUATION_CRITERIA.keys()])
     return SYSTEM_PROMPT_ANALYSIS.format(
-        criteria_list=criteria_keys,
-        criteria_definitions=criteria_defs
+        criteria_list=criteria_keys, criteria_definitions=criteria_defs
     )
 
 

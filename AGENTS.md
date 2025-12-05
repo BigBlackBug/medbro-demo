@@ -36,6 +36,7 @@ Set my Render workspace to medspace
 - ALWAYS run `make lint` to check for linting errors before completing any code changes
 - Fix all linting errors before considering the task complete
 - Use `make format` to auto-format code, but always verify with `make lint` afterwards
+- **DO NOT** lint or format non-code files (like `.md`, `.txt`, `.yaml`, `.json`) or configuration files (like those in `config/`). Only apply linting and formatting to Python source code.
 
 ### Using make commands with specific files
 Both `make lint` and `make format` accept a `FILES` parameter for checking/formatting specific files or directories:
