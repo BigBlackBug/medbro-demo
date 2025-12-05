@@ -11,7 +11,7 @@ service = get_session_service()
 def format_transcript_html(content: str) -> str:
     return f"""
     <div style="
-        height: 300px; 
+        height: 500px;
         overflow-y: auto; 
         padding: 12px; 
         border: 1px solid #e5e7eb; 
@@ -396,7 +396,6 @@ async def analyze_visit(audio_path: str, images: list | None):
         gr.update(interactive=True),
         gr.update(interactive=True),
         gr.update(interactive=True),
-        gr.update(interactive=True),
         gr.update(interactive=has_recs),
     )
 
@@ -610,7 +609,8 @@ def create_app():
             with gr.Column(scale=1):
                 gr.Markdown("### 🗣️ Transcription")
                 transcript_output = gr.HTML(
-                    value='<div style="color: #6b7280; font-style: italic;">Transcription text with key highlights will appear here...</div>'
+                    value='<div style="color: #6b7280; font-style: italic;">Transcription text with key highlights will appear here...</div>',
+                    elem_style={"height": "100%", "display": "flex", "flex-direction": "column"}
                 )
 
         # Separator
