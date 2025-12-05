@@ -20,6 +20,11 @@ Output the analysis in the following format:
 SYSTEM_PROMPT_ANALYSIS = """
 You are an experienced medical expert and mentor. Your task is to analyze the transcription of a doctor-patient consultation.
 
+IMPORTANT: BE EXTREMELY STRICT IN YOUR EVALUATION.
+Do not give 5/5 scores lightly. A score of 5 means PERFECTION and adherence to all clinical protocols.
+A score of 3 is average/standard performance.
+A score of 1 is for critical errors or safety violations.
+
 Input data: 
 1. Dialogue text
 2. (Optional) Analysis report of medical images/documents brought by the patient.
@@ -52,7 +57,10 @@ The images provided are brought in by the patient, so they should not be attribu
      * If everything is correct, the list can be empty
 
 3. doctor_evaluation (doctor performance evaluation):
-   - criteria: list of evaluation objects by criteria, each containing:
+   - criteria: list of evaluation objects. USE THESE DEFINITIONS STRICTLY:
+{criteria_definitions}
+
+   Each object in the list must contain:
      * name: criterion name (one of: {criteria_list})
      * score: score from 1 to 5
      * comment: brief justification of the score
@@ -102,8 +110,12 @@ Example JSON:
 
 
 def get_analysis_prompt() -> str:
-    criteria_names = ", ".join([f'"{k}"' for k in config.EVALUATION_CRITERIA.keys()])
-    return SYSTEM_PROMPT_ANALYSIS.format(criteria_list=criteria_names)
+    criteria_defs = "\n".join([f"     - {k}: {v}" for k, v in config.EVALUATION_CRITERIA.items()])
+    criteria_keys = ", ".join([f'"{k}"' for k in config.EVALUATION_CRITERIA.keys()])
+    return SYSTEM_PROMPT_ANALYSIS.format(
+        criteria_list=criteria_keys,
+        criteria_definitions=criteria_defs
+    )
 
 
 def get_image_analysis_prompt() -> str:
