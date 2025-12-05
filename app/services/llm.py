@@ -237,7 +237,7 @@ class OpenAILLM(LLMProvider):
         )
 
         parsed_result = response.output_parsed
-        
+
         logger.info("OpenAILLM: Received valid response")
         return parsed_result
 
@@ -261,7 +261,7 @@ class OpenAILLM(LLMProvider):
         )
 
         parsed_result = response.output_parsed
-        
+
         logger.info("OpenAILLM: Received valid response")
         return parsed_result
 
@@ -281,7 +281,7 @@ class OpenAILLM(LLMProvider):
         )
 
         parsed_result = response.output_parsed
-        
+
         logger.info("OpenAILLM: Dialogue generation completed")
         return parsed_result
 

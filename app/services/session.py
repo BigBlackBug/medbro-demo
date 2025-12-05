@@ -1,5 +1,7 @@
 import asyncio
+import re
 import uuid
+from pathlib import Path
 
 from app.core.models import AnalysisResult, DialogueTurn, GeneratedDialogue, ImageAttachment
 from app.services.llm import get_llm_provider
@@ -11,7 +13,7 @@ from config.settings import config
 
 
 class MedicalSessionService:
-    def __init__(self):
+    def __init__(self) -> None:
         self._stt = get_stt_provider()
         self._llm = get_llm_provider()
         self._tts = get_tts_provider()
@@ -87,6 +89,88 @@ class MedicalSessionService:
         audio_file = await self._tts.speak(text=text, output_path=str(output_path), voice=voice)
         logger.info(f"Audio generated at: {audio_file}")
         return audio_file
+
+    async def generate_dialogue_audio(
+        self, diagnosis: str | None, doctor_skill: int, output_dir: Path
+    ) -> str:
+        logger.info(f"Generating dialogue audio: diagnosis={diagnosis}, skill={doctor_skill}")
+
+        output_dir.mkdir(exist_ok=True)
+
+        diagnosis = diagnosis.strip() if diagnosis else None
+        if not diagnosis:
+            diagnosis = None
+
+        file_index = self._get_next_file_index(output_dir)
+        diagnosis_slug: str = (
+            self._sanitize_diagnosis_for_filename(diagnosis) if diagnosis else "random"
+        )
+        output_file = (
+            output_dir / f"{file_index:04d}_dialogue_{diagnosis_slug}_skill{doctor_skill}.mp3"
+        )
+
+        system_prompt = get_dialogue_generation_prompt(
+            diagnosis=diagnosis, doctor_skill=doctor_skill
+        )
+        generated_dialogue = await self._llm.generate_dialogue(
+            system_prompt=system_prompt, diagnosis=diagnosis
+        )
+        dialogue_script = generated_dialogue.dialogue
+
+        logger.info(f"Dialogue generated with {len(dialogue_script)} turns")
+
+        temp_files: list[Path] = []
+
+        try:
+            for idx, turn in enumerate(dialogue_script):
+                role = turn.role
+                voice = turn.voice
+                text = turn.text
+
+                logger.info(f"[{idx+1}/{len(dialogue_script)}] {role}: {text[:30]}...")
+
+                temp_file = output_dir / f"part_{idx}_{role}_{uuid.uuid4().hex[:8]}.mp3"
+                temp_files.append(temp_file)
+
+                await self._tts.speak(text=text, output_path=str(temp_file), voice=voice)
+
+            logger.info("Combining audio segments...")
+
+            with open(output_file, "wb") as outfile:
+                for fpath in temp_files:
+                    with open(fpath, "rb") as infile:
+                        outfile.write(infile.read())
+
+            logger.info(f"Audio generation complete: {output_file}")
+            return str(output_file)
+
+        finally:
+            logger.info("Cleaning up temporary files...")
+            for fpath in temp_files:
+                if fpath.exists():
+                    fpath.unlink()
+
+    def _sanitize_diagnosis_for_filename(self, diagnosis: str) -> str:
+        slug = diagnosis.lower()
+        slug = re.sub(r"[^\w\s-]", "", slug)
+        slug = re.sub(r"[\s_]+", "_", slug)
+        slug = slug.strip("_")
+        return slug
+
+    def _get_next_file_index(self, output_dir: Path) -> int:
+        existing_files = list(output_dir.glob("*_dialogue_*.mp3"))
+        if not existing_files:
+            return 1
+
+        max_index = 0
+        for file in existing_files:
+            try:
+                index = int(file.name.split("_")[0])
+                max_index = max(max_index, index)
+            except (ValueError, IndexError):
+                continue
+
+        return max_index + 1
 
 
 # Singleton or Factory

@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+
 import gradio as gr
 
 from app.core.models import AnalysisResult, DialogueTurn, ImageAttachment
@@ -256,7 +258,7 @@ def format_transcript_highlighted(analysis: AnalysisResult, transcript: list[Dia
     return format_transcript_plain(transcript)
 
 
-async def analyze_visit(audio_path: str, images: list | None):
+async def analyze_visit(audio_path: str, images: list | None) -> AsyncIterator[tuple]:
     loading_html = (
         "<div style='padding: 20px; text-align: center; color: #6b7280;'>⏳ Loading...</div>"
     )
@@ -400,7 +402,9 @@ async def analyze_visit(audio_path: str, images: list | None):
     )
 
 
-async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, images: list | None):
+async def generate_and_analyze(
+    diagnosis: str | None, doctor_skill: int, images: list | None
+) -> AsyncIterator[tuple]:
     diagnosis = diagnosis.strip() if diagnosis else None
     if not diagnosis:
         diagnosis = None
@@ -532,7 +536,7 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, images:
     )
 
 
-async def play_recommendations(recommendations_text: str):
+async def play_recommendations(recommendations_text: str) -> tuple[str | None, dict]:
     if not recommendations_text or not recommendations_text.strip():
         logger.warning("No recommendations to play")
         return None, gr.update(interactive=True, value="🔊 Play Recommendations Audio")
@@ -549,13 +553,34 @@ async def play_recommendations(recommendations_text: str):
         return None, gr.update(interactive=True, value="🔊 Play Recommendations Audio")
 
 
-def toggle_analyze_button(audio_path: str | None):
+def toggle_analyze_button(audio_path: str | None) -> dict:
     if audio_path and audio_path.strip():
         return gr.update(interactive=True)
     return gr.update(interactive=False)
 
 
-def create_app():
+async def generate_dialogue_audio(
+    diagnosis: str | None, doctor_skill: int
+) -> AsyncIterator[tuple[str | None, dict, str]]:
+    try:
+        yield None, gr.update(interactive=False), format_status(
+            "Generating dialogue audio...", False
+        )
+
+        output_file = await service.generate_dialogue_audio(
+            diagnosis=diagnosis, doctor_skill=doctor_skill, output_dir=config.DATA_DIR
+        )
+
+        yield output_file, gr.update(interactive=True), format_status(
+            "Audio generation complete!", True
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating audio: {e}")
+        yield None, gr.update(interactive=True), format_status(f"Error: {str(e)}", False)
+
+
+def create_app() -> gr.Blocks:
     with gr.Blocks(title="Medical AI Assistant") as app:
         gr.HTML("<style>footer {visibility: hidden}</style>")
         gr.Markdown("## 🏥 Medical AI Assistant Demo")
@@ -606,11 +631,36 @@ def create_app():
                             "Generate Example and Analyze", variant="secondary", size="lg"
                         )
 
+                    with gr.Tab("🎵 Generate Audio"):
+                        diagnosis_audio_input = gr.Textbox(
+                            label="Diagnosis (optional)",
+                            placeholder="e.g., bronchitis, flu, pneumonia... Leave empty for random",
+                            lines=1,
+                        )
+                        doctor_skill_audio_input = gr.Slider(
+                            minimum=0,
+                            maximum=10,
+                            value=5,
+                            step=1,
+                            label="Doctor's Skill Level",
+                            info="0=Novice, 5=Competent (2 years exp), 10=Expert Master",
+                        )
+                        generate_audio_btn = gr.Button(
+                            "Generate Dialogue Audio", variant="secondary", size="lg"
+                        )
+                        audio_status = gr.HTML(value="", visible=True)
+                        generated_audio_output = gr.Audio(
+                            label="Generated Dialogue Audio",
+                            visible=True,
+                            interactive=False,
+                            type="filepath",
+                        )
+
             with gr.Column(scale=1):
                 gr.Markdown("### 🗣️ Transcription")
                 transcript_output = gr.HTML(
                     value='<div style="color: #6b7280; font-style: italic;">Transcription text with key highlights will appear here...</div>',
-                    elem_style={"height": "100%", "display": "flex", "flex-direction": "column"}
+                    elem_style={"height": "100%", "display": "flex", "flex-direction": "column"},
                 )
 
         # Separator
@@ -710,6 +760,13 @@ def create_app():
             fn=play_recommendations,
             inputs=[recs_text_state],
             outputs=[recs_audio_output, play_recs_btn],
+            show_progress="full",
+        )
+
+        generate_audio_btn.click(
+            fn=generate_dialogue_audio,
+            inputs=[diagnosis_audio_input, doctor_skill_audio_input],
+            outputs=[generated_audio_output, generate_audio_btn, audio_status],
             show_progress="full",
         )
 
