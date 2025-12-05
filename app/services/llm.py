@@ -158,7 +158,7 @@ class OpenAILLM(LLMProvider):
         if not images:
             messages.append({"role": "user", "content": text_content})
         else:
-            content_parts: list[Any] = [{"type": "text", "text": text_content}]
+            content_parts: list = [{"type": "text", "text": text_content}]
 
             for img in images:
                 try:

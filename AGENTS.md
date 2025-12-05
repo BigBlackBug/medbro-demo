@@ -18,6 +18,9 @@ Set my Render workspace to medspace
   - Use `tuple` instead of `Tuple` from typing
   - Use `type` instead of `Type` from typing
 - Use `|` for union types instead of `Union` (e.g., `str | None` instead of `Optional[str]`)
+- When type parameter is not specific, use bare `list` instead of `list[Any]`
+  - Use `list` instead of `list[Any]`
+  - Use `dict` instead of `dict[Any, Any]`
 - Example:
   ```python
   # Good
