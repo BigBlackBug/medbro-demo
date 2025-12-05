@@ -1,0 +1,12 @@
+# Cursor AI Rules
+
+## Always Read AGENTS.md
+Before starting any task, ALWAYS read the AGENTS.md file located in the project root. This file contains critical architecture rules, code quality standards, and project-specific guidelines that must be followed.
+
+Key contents of AGENTS.md:
+- Render workspace settings
+- Service layer architecture rules
+- Type hints and coding standards
+- Linting and formatting requirements
+
+**IMPORTANT**: All rules defined in AGENTS.md take precedence and must be strictly followed.
