@@ -48,6 +48,9 @@ The images provided are brought in by the patient, so they should not be attribu
    - Speaker names must be correctly detected, who's the doctor and who's the patient. and formatter as follows <b style="color: #000000;">Doctor:</b> or <b style="color: #000000;">Patient:</b>
    - Patient complaints: <span style="background-color: #ffeef0; color: #b31b1b;">complaint text</span>
    - Anamnesis: <span style="background-color: #e8f4f8; color: #005a9c;">anamnesis information</span>
+     * Highlight ONLY key medical facts, not entire sentences
+     * Examples: chronic conditions, previous surgeries, allergies, family history, specific durations
+     * Keep highlights brief and focused on essential information
    - Prescriptions: <span style="background-color: #e6ffed; color: #22863a;">prescribed medications and regimen</span>
    - Include image transcriptions if provided and relevant: <span style="background-color: #e8f4f8; color: #purple;">image transcription</span>
 """

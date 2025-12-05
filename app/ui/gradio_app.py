@@ -397,7 +397,7 @@ async def analyze_visit(audio_path: str, images: list | None):
     )
 
 
-async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
+async def generate_and_analyze(diagnosis: str | None, doctor_skill: int, images: list | None):
     diagnosis = diagnosis.strip() if diagnosis else None
     if not diagnosis:
         diagnosis = None
@@ -422,6 +422,7 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
+        gr.update(interactive=False),
     )
 
     system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
@@ -433,6 +434,16 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
         DialogueTurn(speaker=turn.role, text=turn.text) for turn in generated_dialogue.dialogue
     ]
     logger.info(f"Dialogue generation completed: {len(transcript_turns)} turns")
+
+    image_attachments: list[ImageAttachment] | None = None
+    if images:
+        image_attachments = []
+        for img_path in images:
+            if isinstance(img_path, str):
+                image_attachments.append(ImageAttachment(file_path=img_path))
+            elif hasattr(img_path, "name"):
+                image_attachments.append(ImageAttachment(file_path=img_path.name))
+        logger.info(f"Processing {len(image_attachments)} image(s)")
 
     yield (
         format_transcript_plain(transcript_turns),
@@ -449,10 +460,13 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
+        gr.update(interactive=False),
     )
 
     system_prompt = get_analysis_prompt()
-    analysis = await service.llm.analyze(dialogue=transcript_turns, system_prompt=system_prompt)
+    analysis = await service.llm.analyze(
+        dialogue=transcript_turns, system_prompt=system_prompt, images=image_attachments
+    )
     logger.info("Analysis completed")
     recs_html = format_recommendations_html(analysis.prescription_review.recommendations)
     recs_text = (
@@ -493,8 +507,11 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
     meds_text = "\n".join(medications) if medications else "No prescriptions"
     meds_html = format_data_card(title="Medications", content=meds_text)
 
+    image_findings_text = "\n".join([f"- {f}" for f in analysis.structured_data.image_findings])
+    if not image_findings_text:
+        image_findings_text = "No images analyzed" if not images else "No significant findings"
     image_findings_html = format_data_card(
-        title="Image Analysis Findings", content="No images in generated example", emoji="🔬"
+        title="Image Analysis Findings", content=image_findings_text, emoji="🔬"
     )
 
     has_recs = bool(recs_text and recs_text.strip())
@@ -509,6 +526,7 @@ async def generate_and_analyze(diagnosis: str | None, doctor_skill: int):
         meds_html,
         image_findings_html,
         format_status("Analysis complete!", True),
+        gr.update(interactive=True),
         gr.update(interactive=True),
         gr.update(interactive=True),
         gr.update(interactive=True),
@@ -533,10 +551,18 @@ async def play_recommendations(recommendations_text: str):
         return None, gr.update(interactive=True, value="🔊 Play Recommendations Audio")
 
 
+def toggle_analyze_button(audio_path: str | None):
+    if audio_path and audio_path.strip():
+        return gr.update(interactive=True)
+    return gr.update(interactive=False)
+
+
 def create_app():
     with gr.Blocks(title="Medical AI Assistant") as app:
         gr.HTML("<style>footer {visibility: hidden}</style>")
         gr.Markdown("## 🏥 Medical AI Assistant Demo")
+        
+        status_output = gr.HTML(value="", visible=True)
 
         # Top Block: Input Tabs and Transcription
         with gr.Row():
@@ -554,8 +580,9 @@ def create_app():
                             label="📷 Medical Images (X-rays, Lab Reports, Prescriptions)",
                             type="filepath",
                         )
-                        analyze_btn = gr.Button("Start Consultation", variant="primary", size="lg")
-                        analyze_status = gr.HTML(value="", visible=True)
+                        analyze_btn = gr.Button(
+                            "Start Consultation", variant="primary", size="lg", interactive=False
+                        )
 
                     with gr.Tab("🎭 Generate Example"):
                         diagnosis_input = gr.Textbox(
@@ -571,10 +598,15 @@ def create_app():
                             label="Doctor's Skill Level",
                             info="0=Novice, 5=Competent (2 years exp), 10=Expert Master",
                         )
+                        images_input_generate = gr.File(
+                            file_count="multiple",
+                            file_types=["image"],
+                            label="📷 Medical Images (X-rays, Lab Reports, Prescriptions)",
+                            type="filepath",
+                        )
                         generate_btn = gr.Button(
                             "Generate Example and Analyze", variant="secondary", size="lg"
                         )
-                        generate_status = gr.HTML(value="", visible=True)
 
             with gr.Column(scale=1):
                 gr.Markdown("### 🗣️ Transcription")
@@ -652,18 +684,29 @@ def create_app():
             image_findings_output,
         ]
 
+        audio_input.change(
+            fn=toggle_analyze_button, inputs=[audio_input], outputs=[analyze_btn]
+        )
+
         analyze_btn.click(
             fn=analyze_visit,
             inputs=[audio_input, images_input],
             outputs=outputs_list
-            + [analyze_status, audio_input, images_input, analyze_btn, play_recs_btn],
+            + [status_output, audio_input, images_input, analyze_btn, play_recs_btn],
         )
 
         generate_btn.click(
             fn=generate_and_analyze,
-            inputs=[diagnosis_input, doctor_skill_input],
+            inputs=[diagnosis_input, doctor_skill_input, images_input_generate],
             outputs=outputs_list
-            + [generate_status, diagnosis_input, doctor_skill_input, generate_btn, play_recs_btn],
+            + [
+                status_output,
+                diagnosis_input,
+                doctor_skill_input,
+                images_input_generate,
+                generate_btn,
+                play_recs_btn,
+            ],
         )
 
         play_recs_btn.click(
