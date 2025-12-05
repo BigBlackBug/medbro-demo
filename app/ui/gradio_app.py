@@ -607,7 +607,7 @@ def create_app() -> gr.Blocks:
                             "Start Consultation", variant="primary", size="lg", interactive=False
                         )
 
-                    with gr.Tab("🎭 Generate Example"):
+                    with gr.Tab("🎭 Generate Dialogue"):
                         diagnosis_input = gr.Textbox(
                             label="Diagnosis (optional)",
                             placeholder="e.g., bronchitis, flu, pneumonia... Leave empty for random",
@@ -628,7 +628,7 @@ def create_app() -> gr.Blocks:
                             type="filepath",
                         )
                         generate_btn = gr.Button(
-                            "Generate Example and Analyze", variant="secondary", size="lg"
+                            "Generate Dialogue and Analyze", variant="secondary", size="lg"
                         )
 
                     with gr.Tab("🎵 Generate Audio"):
