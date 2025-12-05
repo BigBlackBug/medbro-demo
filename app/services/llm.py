@@ -1,6 +1,7 @@
 import asyncio
 import base64
 from pathlib import Path
+from typing import Any
 
 from openai import AsyncOpenAI
 
@@ -131,7 +132,7 @@ class MockLLM(LLMProvider):
 
 
 class OpenAILLM(LLMProvider):
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
 
     def _encode_image(self, image_path: str) -> str:
@@ -151,13 +152,13 @@ class OpenAILLM(LLMProvider):
 
     def _build_messages_with_images(
         self, text_content: str, system_prompt: str, images: list[ImageAttachment] | None = None
-    ) -> list[dict]:
-        messages = [{"role": "system", "content": system_prompt}]
+    ) -> list[dict[str, Any]]:
+        messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 
         if not images:
             messages.append({"role": "user", "content": text_content})
         else:
-            content_parts = [{"type": "text", "text": text_content}]
+            content_parts: list[Any] = [{"type": "text", "text": text_content}]
 
             for img in images:
                 try:
@@ -203,7 +204,7 @@ class OpenAILLM(LLMProvider):
 
         response = await self.client.chat.completions.create(
             model=config.LLM_MODEL,
-            messages=messages,
+            messages=messages,  # type: ignore[arg-type]
             temperature=0.2,
         )
 
@@ -239,6 +240,8 @@ class OpenAILLM(LLMProvider):
         parsed_result = response.output_parsed
 
         logger.info("OpenAILLM: Received valid response")
+        if parsed_result is None:
+            raise ValueError("Failed to parse analysis response from LLM")
         return parsed_result
 
     async def analyze_raw(
@@ -263,6 +266,8 @@ class OpenAILLM(LLMProvider):
         parsed_result = response.output_parsed
 
         logger.info("OpenAILLM: Received valid response")
+        if parsed_result is None:
+            raise ValueError("Failed to parse raw response from LLM")
         return parsed_result
 
     async def generate_dialogue(
@@ -283,6 +288,8 @@ class OpenAILLM(LLMProvider):
         parsed_result = response.output_parsed
 
         logger.info("OpenAILLM: Dialogue generation completed")
+        if parsed_result is None:
+            raise ValueError("Failed to generate dialogue from LLM")
         return parsed_result
 
 

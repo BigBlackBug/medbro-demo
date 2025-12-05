@@ -160,8 +160,7 @@ class OpenAI_STT(STTProvider):
         # But since I'm adding Deepgram, I don't need to fix OpenAI implementation right now unless requested.
 
         dialogue = []
-        # Placeholder logic since OpenAI standard doesn't diarize by default without addons
-        if hasattr(transcript, "segments"):
+        if hasattr(transcript, "segments") and transcript.segments is not None:
             for segment in transcript.segments:
                 # speaker = getattr(segment, "speaker", "Unknown") # OpenAI segments don't have speaker
                 speaker = "Unknown"

@@ -29,7 +29,7 @@ class OpenAITTS(TTSProvider):
     Tempo: Fast and purposeful, moving efficiently through the information while maintaining clarity.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
 
     async def speak(self, text: str, output_path: str, voice: str | None = None) -> str:
