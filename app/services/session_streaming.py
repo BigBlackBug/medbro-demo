@@ -154,6 +154,18 @@ class MedicalSessionStreamingService:
             logger.info(f"→ Transcript complete. Response ID: {response_id}")
             yield {"stage": "transcript", "status": "complete", "data": formatted_transcript}
 
+            if image_report:
+                logger.info("→ Injecting image analysis into conversation context...")
+                image_stream = await self._llm.inject_image_analysis_streaming(
+                    previous_response_id=response_id, image_analysis=image_report
+                )
+                async with image_stream as stream:
+                    async for event in stream:
+                        if event.type == "response.completed":
+                            logger.info("→ Image analysis injected")
+                    final_response = await stream.get_final_response()
+                    response_id = final_response.id
+
             logger.info("→ Starting complaints stage")
             yield {"stage": "complaints", "status": "starting", "data": None}
 
@@ -188,7 +200,6 @@ class MedicalSessionStreamingService:
             stream_manager = await self._llm.analyze_diagnosis_streaming(
                 previous_response_id=response_id,
                 system_prompt=get_diagnosis_streaming_prompt(),
-                image_analysis=image_report,
             )
 
             async with stream_manager as stream:
@@ -245,7 +256,6 @@ class MedicalSessionStreamingService:
             stream_manager = await self._llm.analyze_recommendations_streaming(
                 previous_response_id=response_id,
                 system_prompt=get_recommendations_streaming_prompt(),
-                image_analysis=image_report,
             )
 
             buffer = ""

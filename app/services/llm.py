@@ -303,13 +303,40 @@ class OpenAILLM(LLMProvider):
     ) -> Any:
         dialogue_text = "\n".join([f"{turn.speaker}: {turn.text}" for turn in dialogue])
 
+        if not dialogue_text or not dialogue_text.strip():
+            raise ValueError("Cannot start streaming analysis: dialogue is empty")
+
         logger.info("OpenAILLM: Starting formatted transcript streaming...")
+        logger.info(f"Dialogue text length: {len(dialogue_text)} chars")
 
         stream = self.client.responses.stream(
             model=config.LLM_MODEL,
-            instructions=system_prompt,
-            input=dialogue_text,
+            input=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": dialogue_text},
+            ],
             temperature=0.2,
+        )
+
+        return stream
+
+    async def inject_image_analysis_streaming(
+        self, previous_response_id: str, image_analysis: str
+    ) -> Any:
+        logger.info(
+            f"OpenAILLM: Injecting image analysis into conversation (previous_response_id={previous_response_id})..."
+        )
+
+        stream = self.client.responses.stream(
+            model=config.LLM_MODEL,
+            input=[
+                {
+                    "role": "user",
+                    "content": f"Additional context - Image/Document Analysis Report:\n{image_analysis}\n\nPlease acknowledge this information briefly.",
+                }
+            ],
+            temperature=0.2,
+            previous_response_id=previous_response_id,
         )
 
         return stream
@@ -325,8 +352,7 @@ class OpenAILLM(LLMProvider):
 
         stream = self.client.responses.stream(
             model=config.LLM_MODEL,
-            instructions=system_prompt,
-            input="Continue analysis with complaints.",
+            input=[{"role": "user", "content": system_prompt}],
             text_format=ComplaintsResponse,
             temperature=0.2,
             previous_response_id=previous_response_id,
@@ -338,21 +364,14 @@ class OpenAILLM(LLMProvider):
         self,
         previous_response_id: str,
         system_prompt: str,
-        image_analysis: str | None = None,
     ) -> Any:
         logger.info(
             f"OpenAILLM: Starting diagnosis streaming with previous_response_id={previous_response_id}..."
         )
 
-        input_text = "Continue analysis with diagnosis."
-        if image_analysis:
-            input_text = f"{input_text}\n\nImage/Document Analysis Report:\n{image_analysis}"
-            logger.info("Added image analysis report to diagnosis context")
-
         stream = self.client.responses.stream(
             model=config.LLM_MODEL,
-            instructions=system_prompt,
-            input=input_text,
+            input=[{"role": "user", "content": system_prompt}],
             text_format=DiagnosisResponse,
             temperature=0.2,
             previous_response_id=previous_response_id,
@@ -371,8 +390,7 @@ class OpenAILLM(LLMProvider):
 
         stream = self.client.responses.stream(
             model=config.LLM_MODEL,
-            instructions=system_prompt,
-            input="Continue analysis with medications.",
+            input=[{"role": "user", "content": system_prompt}],
             text_format=MedicationsResponse,
             temperature=0.2,
             previous_response_id=previous_response_id,
@@ -391,8 +409,7 @@ class OpenAILLM(LLMProvider):
 
         stream = self.client.responses.stream(
             model=config.LLM_MODEL,
-            instructions=system_prompt,
-            input="Continue analysis with image findings.",
+            input=[{"role": "user", "content": system_prompt}],
             text_format=ImageFindingsResponse,
             temperature=0.2,
             previous_response_id=previous_response_id,
@@ -404,21 +421,14 @@ class OpenAILLM(LLMProvider):
         self,
         previous_response_id: str,
         system_prompt: str,
-        image_analysis: str | None = None,
     ) -> Any:
         logger.info(
             f"OpenAILLM: Starting recommendations streaming with previous_response_id={previous_response_id}..."
         )
 
-        input_text = "Continue analysis with recommendations."
-        if image_analysis:
-            input_text = f"{input_text}\n\nImage/Document Analysis Report:\n{image_analysis}"
-            logger.info("Added image analysis report to recommendations context")
-
         stream = self.client.responses.stream(
             model=config.LLM_MODEL,
-            instructions=system_prompt,
-            input=input_text,
+            input=[{"role": "user", "content": system_prompt}],
             temperature=0.2,
             previous_response_id=previous_response_id,
         )
@@ -436,8 +446,7 @@ class OpenAILLM(LLMProvider):
 
         stream = self.client.responses.stream(
             model=config.LLM_MODEL,
-            instructions=system_prompt,
-            input="Continue analysis with criteria.",
+            input=[{"role": "user", "content": system_prompt}],
             temperature=0.2,
             previous_response_id=previous_response_id,
         )
@@ -455,8 +464,7 @@ class OpenAILLM(LLMProvider):
 
         stream = self.client.responses.stream(
             model=config.LLM_MODEL,
-            instructions=system_prompt,
-            input="Continue analysis with general comment.",
+            input=[{"role": "user", "content": system_prompt}],
             temperature=0.2,
             previous_response_id=previous_response_id,
         )
