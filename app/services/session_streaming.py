@@ -108,6 +108,12 @@ class MedicalSessionStreamingService:
 
         return transcript_turns, image_report
 
+    async def analyze_images_only(self, images: list[ImageAttachment]) -> str:
+        logger.info(f"Analyzing {len(images)} images without consultation dialogue...")
+        image_report = await self._llm.analyze_images(images)
+        logger.info(f"Image analysis complete: {len(image_report)} chars")
+        return image_report
+
     async def analyze_consultation_streaming(
         self, transcript: list[DialogueTurn], image_report: str | None = None
     ) -> AsyncIterator[dict[str, Any]]:
@@ -150,6 +156,8 @@ class MedicalSessionStreamingService:
 
                 final_response = await stream.get_final_response()
                 response_id = final_response.id
+                if not response_id:
+                    raise ValueError("Failed to get response_id from transcript stage")
 
             logger.info(f"→ Transcript complete. Response ID: {response_id}")
             yield {"stage": "transcript", "status": "complete", "data": formatted_transcript}
@@ -165,6 +173,8 @@ class MedicalSessionStreamingService:
                             logger.info("→ Image analysis injected")
                     final_response = await stream.get_final_response()
                     response_id = final_response.id
+                    if not response_id:
+                        raise ValueError("Failed to get response_id from image injection stage")
 
             logger.info("→ Starting complaints stage")
             yield {"stage": "complaints", "status": "starting", "data": None}
@@ -181,6 +191,8 @@ class MedicalSessionStreamingService:
 
                 final_response = await stream.get_final_response()
                 response_id = final_response.id
+                if not response_id:
+                    raise ValueError("Failed to get response_id from complaints stage")
 
                 if final_response.output:
                     for message in final_response.output:
@@ -209,6 +221,8 @@ class MedicalSessionStreamingService:
 
                 final_response = await stream.get_final_response()
                 response_id = final_response.id
+                if not response_id:
+                    raise ValueError("Failed to get response_id from diagnosis stage")
 
                 if final_response.output:
                     for message in final_response.output:
@@ -237,6 +251,8 @@ class MedicalSessionStreamingService:
 
                 final_response = await stream.get_final_response()
                 response_id = final_response.id
+                if not response_id:
+                    raise ValueError("Failed to get response_id from medications stage")
 
                 if final_response.output:
                     for message in final_response.output:
@@ -282,6 +298,8 @@ class MedicalSessionStreamingService:
 
                 final_response = await stream.get_final_response()
                 response_id = final_response.id
+                if not response_id:
+                    raise ValueError("Failed to get response_id from recommendations stage")
 
             if buffer.strip() and buffer.strip().lower() != "no recommendations.":
                 recommendations.append(buffer.strip())
@@ -323,6 +341,8 @@ class MedicalSessionStreamingService:
 
                 final_response = await stream.get_final_response()
                 response_id = final_response.id
+                if not response_id:
+                    raise ValueError("Failed to get response_id from criteria stage")
 
             if buffer.strip():
                 criterion = self._parse_criterion(buffer.strip())

@@ -30,28 +30,93 @@ def format_transcript_highlighted_streaming(formatted_transcript: str) -> str:
     return "<div style='padding: 20px; text-align: center; color: #6b7280;'>⏳ Loading...</div>"
 
 
+async def analyze_images_only(images: list) -> AsyncIterator[tuple]:
+    loading_html = (
+        "<div style='padding: 20px; text-align: center; color: #6b7280;'>⏳ Loading...</div>"
+    )
+    empty_html = "<div style='padding: 20px; text-align: center; color: #9ca3af; font-style: italic;'>N/A - No consultation audio provided</div>"
+
+    image_attachments: list[ImageAttachment] = []
+    for img_path in images:
+        if isinstance(img_path, str):
+            image_attachments.append(ImageAttachment(file_path=img_path))
+        elif hasattr(img_path, "name"):
+            image_attachments.append(ImageAttachment(file_path=img_path.name))
+
+    logger.info(f"Analyzing {len(image_attachments)} image(s) without audio...")
+
+    yield (
+        "<div style='padding: 20px; text-align: center; color: #6b7280;'>No audio provided - analyzing images only...</div>",
+        empty_html,
+        "",
+        empty_html,
+        empty_html,
+        empty_html,
+        empty_html,
+        empty_html,
+        loading_html,
+        format_status(f"📸 Analyzing {len(image_attachments)} image(s)...", False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
+        gr.update(open=False),
+    )
+
+    image_report = await streaming_service.analyze_images_only(image_attachments)
+
+    image_findings_html = format_data_card(
+        title="Image Analysis Findings", content=image_report, emoji="🔬"
+    )
+
+    yield (
+        "<div style='padding: 20px; text-align: center; color: #2563eb;'>✓ Image analysis complete (no audio consultation provided)</div>",
+        empty_html,
+        "",
+        empty_html,
+        empty_html,
+        empty_html,
+        empty_html,
+        empty_html,
+        image_findings_html,
+        format_status("✅ Image analysis complete!", True),
+        gr.update(interactive=True),
+        gr.update(interactive=True),
+        gr.update(interactive=True),
+        gr.update(interactive=False),
+        gr.update(open=True),
+    )
+
+
 async def analyze_visit_streaming(audio_path: str, images: list | None) -> AsyncIterator[tuple]:
     loading_html = (
         "<div style='padding: 20px; text-align: center; color: #6b7280;'>⏳ Loading...</div>"
     )
+
     if not audio_path:
-        yield (
-            "No audio provided",
-            "<div>No audio provided</div>",
-            "",
-            "<div>No data</div>",
-            loading_html,
-            loading_html,
-            loading_html,
-            loading_html,
-            loading_html,
-            format_status("No audio provided", False),
-            gr.update(interactive=True),
-            gr.update(interactive=True),
-            gr.update(interactive=True),
-            gr.update(interactive=False),
-        )
-        return
+        if images and len(images) > 0:
+            async for result in analyze_images_only(images):
+                yield result
+            return
+        else:
+            yield (
+                "<div style='padding: 20px; text-align: center; color: #dc2626;'>⚠ No audio or images provided</div>",
+                loading_html,
+                "",
+                loading_html,
+                loading_html,
+                loading_html,
+                loading_html,
+                loading_html,
+                loading_html,
+                format_status("No audio or images provided", False),
+                gr.update(interactive=True),
+                gr.update(interactive=True),
+                gr.update(interactive=True),
+                gr.update(interactive=False),
+                gr.update(open=False),
+            )
+            return
 
     image_attachments: list[ImageAttachment] | None = None
     if images:
@@ -84,6 +149,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
+        gr.update(open=False),
     )
 
     transcript_task = asyncio.create_task(streaming_service._stt.transcribe(audio_path))
@@ -138,6 +204,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
+        gr.update(open=False),
     )
 
     image_report: str | None = None
@@ -164,6 +231,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
             gr.update(interactive=False),
             gr.update(interactive=False),
             gr.update(interactive=False),
+            gr.update(open=False),
         )
 
     transcript_html = loading_html
@@ -200,6 +268,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
             elif status == "complete" and data:
                 transcript_html = format_transcript_highlighted_streaming(data)
@@ -226,6 +295,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "diagnosis":
@@ -248,6 +318,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "medications":
@@ -278,6 +349,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "recommendations":
@@ -302,6 +374,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "criteria":
@@ -334,6 +407,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "general_comment":
@@ -355,6 +429,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "complete":
@@ -374,6 +449,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                 gr.update(interactive=True),
                 gr.update(interactive=True),
                 gr.update(interactive=has_recs),
+                gr.update(open=False),
             )
 
         elif stage == "error":
@@ -392,6 +468,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                 gr.update(interactive=True),
                 gr.update(interactive=True),
                 gr.update(interactive=False),
+                gr.update(open=False),
             )
 
 
@@ -438,6 +515,7 @@ async def generate_and_analyze_streaming(
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
+        gr.update(open=False),
     )
 
     system_prompt = get_dialogue_generation_prompt(diagnosis=diagnosis, doctor_skill=doctor_skill)
@@ -500,6 +578,7 @@ async def generate_and_analyze_streaming(
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
+        gr.update(open=False),
     )
 
     image_report: str | None = None
@@ -527,6 +606,7 @@ async def generate_and_analyze_streaming(
             gr.update(interactive=False),
             gr.update(interactive=False),
             gr.update(interactive=False),
+            gr.update(open=False),
         )
 
     transcript_html = loading_html
@@ -564,6 +644,7 @@ async def generate_and_analyze_streaming(
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
             elif status == "complete" and data:
                 transcript_html = format_transcript_highlighted_streaming(data)
@@ -591,6 +672,7 @@ async def generate_and_analyze_streaming(
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "diagnosis":
@@ -614,6 +696,7 @@ async def generate_and_analyze_streaming(
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "medications":
@@ -645,6 +728,7 @@ async def generate_and_analyze_streaming(
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "recommendations":
@@ -670,6 +754,7 @@ async def generate_and_analyze_streaming(
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "criteria":
@@ -703,6 +788,7 @@ async def generate_and_analyze_streaming(
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "general_comment":
@@ -725,6 +811,7 @@ async def generate_and_analyze_streaming(
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
+                    gr.update(open=False),
                 )
 
         elif stage == "complete":
@@ -745,6 +832,7 @@ async def generate_and_analyze_streaming(
                 gr.update(interactive=True),
                 gr.update(interactive=True),
                 gr.update(interactive=has_recs),
+                gr.update(open=False),
             )
 
         elif stage == "error":
@@ -764,13 +852,23 @@ async def generate_and_analyze_streaming(
                 gr.update(interactive=True),
                 gr.update(interactive=True),
                 gr.update(interactive=False),
+                gr.update(open=False),
             )
 
 
-def toggle_analyze_button(audio_path: str | None) -> dict:
-    if audio_path and audio_path.strip():
-        return gr.update(interactive=True)
-    return gr.update(interactive=False)
+def toggle_analyze_button(audio_path: str | None, images: list | None) -> tuple[dict, dict]:
+    has_audio = audio_path and audio_path.strip()
+    has_images = images and len(images) > 0
+
+    if has_audio or has_images:
+        if has_audio and has_images:
+            button_label = "Analyze Conversation and Images"
+        elif has_audio:
+            button_label = "Analyze Conversation"
+        else:
+            button_label = "Analyze Images"
+        return gr.update(interactive=True, value=button_label), gr.update()
+    return gr.update(interactive=False, value="Analyze Conversation"), gr.update()
 
 
 def create_streaming_app() -> gr.Blocks:
@@ -857,7 +955,7 @@ def create_streaming_app() -> gr.Blocks:
 
         gr.Markdown("---")
 
-        with gr.Accordion("🔬 Image Analysis Findings", open=False):
+        with gr.Accordion("🔬 Image Analysis Findings", open=False) as image_accordion:
             image_findings_output = gr.HTML(
                 value="<div style='color: #6b7280; font-style: italic;'>Image findings will appear here...</div>"
             )
@@ -919,13 +1017,30 @@ def create_streaming_app() -> gr.Blocks:
             image_findings_output,
         ]
 
-        audio_input.change(fn=toggle_analyze_button, inputs=[audio_input], outputs=[analyze_btn])
+        outputs_list_with_accordion = outputs_list + [
+            status_output,
+            audio_input,
+            images_input,
+            analyze_btn,
+            play_recs_btn,
+            image_accordion,
+        ]
+
+        audio_input.change(
+            fn=toggle_analyze_button,
+            inputs=[audio_input, images_input],
+            outputs=[analyze_btn, audio_input],
+        )
+        images_input.change(
+            fn=toggle_analyze_button,
+            inputs=[audio_input, images_input],
+            outputs=[analyze_btn, images_input],
+        )
 
         analyze_btn.click(
             fn=analyze_visit_streaming,
             inputs=[audio_input, images_input],
-            outputs=outputs_list
-            + [status_output, audio_input, images_input, analyze_btn, play_recs_btn],
+            outputs=outputs_list_with_accordion,
         )
 
         generate_btn.click(
@@ -939,6 +1054,7 @@ def create_streaming_app() -> gr.Blocks:
                 images_input_generate,
                 generate_btn,
                 play_recs_btn,
+                image_accordion,
             ],
         )
 
