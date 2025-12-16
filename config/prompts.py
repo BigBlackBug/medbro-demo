@@ -18,6 +18,8 @@ FORMAT REQUIREMENTS:
 - Include measurements, grades, or severity when visible
 - Use bullet points for clarity
 - Organize by modality/document type
+- Output title should be empty, start with content.
+- Use markdown formatting for bullet points, lists and highlighted text.
 
 OUTPUT STRUCTURE (include only sections for data actually present):
 

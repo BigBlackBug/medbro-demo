@@ -18,6 +18,18 @@ from app.ui.gradio_app import (
 from config.logger import logger
 from config.prompts import get_dialogue_generation_prompt
 
+
+def format_markdown_card(content: str) -> str:
+    if not content or content in [
+        "Not established",
+        "No images analyzed",
+        "No significant findings",
+    ]:
+        content = f"*{content}*"
+
+    return f"{content}"
+
+
 streaming_service = get_streaming_session_service()
 
 
@@ -54,7 +66,7 @@ async def analyze_images_only(images: list) -> AsyncIterator[tuple]:
         empty_html,
         empty_html,
         empty_html,
-        loading_html,
+        "*⏳ Loading...*",
         format_status(f"📸 Analyzing {len(image_attachments)} image(s)...", False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -65,9 +77,7 @@ async def analyze_images_only(images: list) -> AsyncIterator[tuple]:
 
     image_report = await streaming_service.analyze_images_only(image_attachments)
 
-    image_findings_html = format_data_card(
-        title="Image Analysis Findings", content=image_report, emoji="🔬"
-    )
+    image_findings_html = format_markdown_card(content=image_report)
 
     yield (
         "<div style='padding: 20px; text-align: center; color: #2563eb;'>✓ Image analysis complete (no audio consultation provided)</div>",
@@ -108,7 +118,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
                 loading_html,
                 loading_html,
                 loading_html,
-                loading_html,
+                "*⏳ Loading...*",
                 format_status("No audio or images provided", False),
                 gr.update(interactive=True),
                 gr.update(interactive=True),
@@ -143,7 +153,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
         loading_html,
         loading_html,
         loading_html,
-        loading_html,
+        "*⏳ Loading...*",
         format_status(status_text, False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -198,7 +208,7 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
         loading_html,
         loading_html,
         loading_html,
-        loading_html,
+        "*⏳ Loading...*",
         format_status(status_after_transcript, False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -208,13 +218,11 @@ async def analyze_visit_streaming(audio_path: str, images: list | None) -> Async
     )
 
     image_report: str | None = None
-    image_findings_html = loading_html
+    image_findings_html = "*⏳ Loading...*"
     if image_task:
         image_report = await image_task
         logger.info("Image analysis completed")
-        image_findings_html = format_data_card(
-            title="Image Analysis Findings", content=image_report, emoji="🔬"
-        )
+        image_findings_html = format_markdown_card(content=image_report)
 
         yield (
             transcript_display,
@@ -508,7 +516,7 @@ async def generate_and_analyze_streaming(
         loading_html,
         loading_html,
         loading_html,
-        loading_html,
+        "*⏳ Loading...*",
         format_status(status_text, False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -571,7 +579,7 @@ async def generate_and_analyze_streaming(
         loading_html,
         loading_html,
         loading_html,
-        loading_html,
+        "*⏳ Loading...*",
         format_status(status_after_dialogue, False),
         gr.update(interactive=False),
         gr.update(interactive=False),
@@ -582,13 +590,11 @@ async def generate_and_analyze_streaming(
     )
 
     image_report: str | None = None
-    image_findings_html = loading_html
+    image_findings_html = "*⏳ Loading...*"
     if image_task:
         image_report = await image_task
         logger.info("Image analysis completed")
-        image_findings_html = format_data_card(
-            title="Image Analysis Findings", content=image_report, emoji="🔬"
-        )
+        image_findings_html = format_markdown_card(content=image_report)
 
         yield (
             transcript_display,
@@ -873,7 +879,35 @@ def toggle_analyze_button(audio_path: str | None, images: list | None) -> tuple[
 
 def create_streaming_app() -> gr.Blocks:
     with gr.Blocks(title="Medical AI Assistant - Streaming") as app:
-        gr.HTML("<style>footer {visibility: hidden}</style>")
+        gr.HTML(
+            """<style>
+footer {visibility: hidden}
+.image-findings-markdown {
+    background-color: #f9fafb !important;
+    padding: 16px !important;
+    border-radius: 8px !important;
+}
+.image-findings-markdown,
+.image-findings-markdown .prose,
+.image-findings-markdown .markdown-body,
+.image-findings-markdown > div,
+.image-findings-markdown p,
+.image-findings-markdown ul,
+.image-findings-markdown ol,
+.image-findings-markdown li,
+.image-findings-markdown h1,
+.image-findings-markdown h2,
+.image-findings-markdown h3,
+.image-findings-markdown h4,
+.image-findings-markdown strong,
+.image-findings-markdown em,
+.image-findings-markdown * {
+    font-size: 16px !important;
+    line-height: 1.4 !important;
+    color: #1f2937 !important;
+}
+</style>"""
+        )
         gr.Markdown("## 🏥 Medical AI Assistant Demo (Streaming Mode)")
 
         status_output = gr.HTML(value="", visible=True)
@@ -956,8 +990,8 @@ def create_streaming_app() -> gr.Blocks:
         gr.Markdown("---")
 
         with gr.Accordion("🔬 Image Analysis Findings", open=False) as image_accordion:
-            image_findings_output = gr.HTML(
-                value="<div style='color: #6b7280; font-style: italic;'>Image findings will appear here...</div>"
+            image_findings_output = gr.Markdown(
+                value="*Image findings will appear here...*", elem_classes="image-findings-markdown"
             )
 
         gr.Markdown("---")
