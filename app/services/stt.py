@@ -184,7 +184,11 @@ class OpenAI_STT(STTProvider):
 
 def get_stt_provider() -> STTProvider:
     if config.USE_MOCK_SERVICES:
+        logger.info("Using Mock STT service")
         return MockSTT()
     if config.DEEPGRAM_API_KEY:
+        logger.info("Using Deepgram STT service")
         return DeepgramSTT()
+
+    logger.info("Using OpenAI STT service")
     return OpenAI_STT()

@@ -44,5 +44,8 @@ class OpenAITTS(TTSProvider):
 
 def get_tts_provider() -> TTSProvider:
     if config.USE_MOCK_SERVICES:
+        logger.info("Using Mock TTS service")
         return MockTTS()
+
+    logger.info("Using OpenAI TTS service")
     return OpenAITTS()
