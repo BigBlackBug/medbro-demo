@@ -33,9 +33,11 @@ class AppConfig(BaseSettings):
     DEEPGRAM_API_KEY: str = Field(default="")
 
     DEEPGRAM_MODEL: str = "nova-3"
-    LLM_MODEL: str = "gpt-5.1"
+
+    LLM_MODEL: str = "gpt-5.2"
     STT_MODEL: str = "gpt-4o-transcribe"
     STT_DIARIZATION_MODEL: str = "gpt-4o-transcribe-diarize"
+
     TTS_MODEL: str = "tts-1-hd"
     DEFAULT_TTS_VOICE: str = "sage"
 
