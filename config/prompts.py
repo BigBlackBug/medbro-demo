@@ -90,7 +90,7 @@ CRITICAL: RED FLAGS PROTOCOL
 Analyze the dialogue and image report (if any) and provide the following information:
 
 1. structured_data (structured consultation data):
-   - complaints: list of strings with patient complaints
+   - complaints: list of strings with patient complaints in reported speech (third-person past tense, e.g., "The patient had a headache for about two days")
    - diagnosis: preliminary diagnosis (string or null)
    - medications: list of objects with prescribed medications, each containing:
      * name: medication name
@@ -214,6 +214,7 @@ def get_complaints_streaming_prompt() -> str:
 
 Based on the consultation analysis, extract ONLY the patient's complaints as a list of strings.
 Include all symptoms and concerns the patient mentioned.
+Use reported speech (third-person past tense), e.g., "The patient had a headache for about two days".
 """
 
 
